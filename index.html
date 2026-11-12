@@ -121,7 +121,33 @@ button,input,select{font:inherit; color:inherit}
 /* 取引1行（🔴買い 🔵売り 🟠新規売り 🟢買い戻し） */
 .day{margin:16px 0 4px; font-size:14px; color:var(--sub); font-weight:700; letter-spacing:.04em}
 .day:first-child{margin-top:0}
-.tx{display:grid; grid-template-columns:minmax(0,1fr) auto; gap:2px 12px; padding:10px 0; border-top:1px solid var(--line)}
+.tx{display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:2px 12px; padding:10px 0; border-top:1px solid var(--line)}
+.tx .more{grid-column:3; grid-row:1 / span 2; align-self:center; width:44px; height:44px; border-radius:12px; border:1px solid var(--line2); background:#0e1422; color:var(--sub); font-size:22px; line-height:1; cursor:pointer}
+.tx .more:active{background:#1b2335}
+/* 確認の画面（下から出る・PCでは真ん中） */
+.sheet{position:fixed; inset:0; z-index:30; display:flex; align-items:flex-end; justify-content:center}
+.sheet-bg{position:absolute; inset:0; background:rgba(3,6,12,.72)}
+.sheet-box{position:relative; width:100%; max-width:520px; max-height:88vh; overflow:auto; background:linear-gradient(180deg,var(--panel2),var(--panel)); border:1px solid var(--line2); border-bottom:0; border-radius:22px 22px 0 0; padding:22px 16px calc(14px + env(safe-area-inset-bottom)); box-shadow:0 -12px 40px rgba(0,0,0,.55)}
+@media (min-width:700px){ .sheet{align-items:center} .sheet-box{border-radius:22px; border-bottom:1px solid var(--line2)} }
+.sheet-box h3{margin:0 0 14px; font-size:20px}
+.sheet .btns{margin-top:16px}
+.sheet .btns.one{grid-template-columns:1fr}
+.link.wide{display:block; width:100%; margin-top:6px; font-size:16px}
+.sum{background:#0e1422; border:1px solid var(--line2); border-radius:16px; padding:14px 16px; display:grid; gap:6px}
+.sum .r1{font-size:17px; font-weight:700; display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+.sum .r2{font-size:18px; font-weight:700}
+.sum .r3{font-family:var(--num); font-size:24px; font-weight:700}
+.sum .r4{color:var(--sub); font-size:15px}
+.was{margin:0 0 10px; color:var(--sub); font-size:15px}
+.was b{color:var(--ink)}
+.editing{display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; margin:-4px 0 12px; padding:6px 6px 6px 12px; border-radius:12px; border:1px solid rgba(243,197,82,.5); background:var(--gold-soft); color:var(--gold); font-weight:700}
+.editing .link{color:var(--gold)}
+.hint{margin:-6px 0 0; color:var(--sub); font-size:14px; min-height:1.4em}
+.fmsg{margin:0; min-height:1.4em; color:var(--plus); font-weight:700}
+.toast.act{display:flex; align-items:center; gap:12px; padding:8px 8px 8px 16px; pointer-events:auto}
+.toast.act button{min-height:44px; padding:0 14px; border-radius:10px; border:1px solid rgba(255,255,255,.35); background:transparent; color:#fff; font-weight:700; font-size:16px; cursor:pointer; white-space:nowrap}
+body.noscroll{overflow:hidden}
+.check.hidden{display:none !important}   /* .check の display:flex !important が .hidden に勝っていた＝買いでも恩株化の欄が出ていた */
 .day + .tx{border-top:0}
 .k{display:inline-flex; align-items:center; gap:5px; font-size:13px; padding:0 8px; border-radius:6px; margin-right:8px; vertical-align:2px; border:1px solid currentColor; line-height:1.7}
 .k::before{content:""; width:7px; height:7px; border-radius:50%; background:currentColor}
@@ -286,9 +312,10 @@ button,input,select{font:inherit; color:inherit}
       <h2>📨 約定メールから見つけた取引</h2>
       <div id="pend"></div>
     </div>
-    <div class="card">
-      <h2>✍️ 手で記録する</h2>
-      <form id="txForm" class="form" autocomplete="off">
+    <div class="card" id="recCard">
+      <h2 id="recTitle">✍️ 手で記録する</h2>
+      <div class="editing hidden" id="editBar"><span>この取引を直しています</span><button class="link" id="editCancel" type="button">直すのをやめる</button></div>
+      <form id="txForm" class="form" autocomplete="off" novalidate>
         <fieldset class="types" id="fType" aria-label="取引の種類">
           <label class="t-buy"><input type="radio" name="ftype" value="買い" checked><span>🔴 買い</span></label>
           <label class="t-sell"><input type="radio" name="ftype" value="売り"><span>🔵 売り</span></label>
@@ -297,14 +324,18 @@ button,input,select{font:inherit; color:inherit}
         </fieldset>
         <div class="two">
           <label>日付<input id="fDate" type="date" required></label>
-          <label>証券コード<input id="fCode" inputmode="text" maxlength="5" placeholder="例 6590" required></label>
+          <label>証券コード<input id="fCode" inputmode="text" maxlength="5" placeholder="例 6590" required enterkeyhint="next"></label>
         </div>
+        <label>銘柄名<input id="fName" maxlength="40" placeholder="コードを入れると出ます" enterkeyhint="next"></label>
+        <p class="hint" id="fHint"></p>
         <div class="two">
-          <label>株数<input id="fQty" type="number" inputmode="numeric" min="1" step="1" required></label>
-          <label>1株の値段（¥）<input id="fPrice" type="number" inputmode="decimal" min="0" step="any" required></label>
+          <label>株数<input id="fQty" type="number" inputmode="numeric" min="1" step="1" required enterkeyhint="next"></label>
+          <label>1株の値段（¥）<input id="fPrice" type="number" inputmode="decimal" min="0" step="any" required enterkeyhint="done"></label>
         </div>
         <label class="check hidden" id="fBonusWrap"><input id="fBonus" type="checkbox">恩株化の売り（元手を回収して残りを恩株にする）</label>
-        <button class="btn main wide" type="submit">記録する</button>
+        <p class="fmsg" id="fMsg" role="alert"></p>
+        <button class="btn main wide" id="fCheck" type="button">確認する</button>
+        <p class="note">確認の画面で「確定」を押すまで、記録はされません。</p>
       </form>
     </div>
     <div class="card">
@@ -320,6 +351,17 @@ button,input,select{font:inherit; color:inherit}
   </section>
 
   <div class="foot"><button class="link" id="forget" type="button">このブラウザで暗証番号を消す</button></div>
+</div>
+
+<!-- 確認の画面（記録・直す・消すは、ここで「確定」を押した時だけ送る） -->
+<div class="sheet hidden" id="sheet" role="dialog" aria-modal="true" aria-labelledby="shTitle">
+  <div class="sheet-bg" id="shBg"></div>
+  <div class="sheet-box">
+    <h3 id="shTitle"></h3>
+    <div id="shBody"></div>
+    <div class="btns" id="shBtns"></div>
+    <button class="link wide" id="shCancel" type="button">やめる</button>
+  </div>
 </div>
 
 <nav class="tabs hidden" id="tabs"><div class="in" id="tabsIn">
@@ -445,6 +487,11 @@ button,input,select{font:inherit; color:inherit}
     var data = state.data, logs = cleanLogs(data.logs || []);
     var res = JPG.recalculateAll(logs), R = JPG.computeReward(res), names = nameMap(logs, res);
     var nm = function (c, fb) { return names[c] || String(fb || c); };
+    state.names = names; state.nm = nm;
+    // 行ごとの名札と「同じ名札の何番目か」（直す・消すで、受け口に どの行か を伝える）
+    var seenSig = {};
+    state.rows = res.logs.map(function (l, i) { var s = sigOf(l); var n = seenSig[s] || 0; seenSig[s] = n + 1; l.__r = i; return { l: l, sig: s, nth: n }; });
+    state.sigCount = seenSig;   // 同じ名札の行の数（受け口の数と違えば、受け口が断る）
     var pls = res.logs.filter(function (l) { return NOT_PL.indexOf(l['区分']) < 0; });
     var year = pls.reduce(function (s, l) { return s + Number(l['確定損益'] || 0); }, 0);
 
@@ -510,7 +557,11 @@ button,input,select{font:inherit; color:inherit}
     var owner = state.role === 'owner';
     $('tabsIn').style.setProperty('--n', owner ? 4 : 3);
     document.querySelector('.tab[data-v="rec"]').classList.toggle('hidden', !owner);
-    var pend = (data.pending || []);
+    // 候補は古い順（同じ日の買い→売りの順に記録できるように・別の目 2026-11-12）
+    var pend = (data.pending || []).slice().sort(function (a, b) {
+      var x = String(a['日付']) + ' ' + String(a['受信'] || ''), y = String(b['日付']) + ' ' + String(b['受信'] || '');
+      return x < y ? -1 : (x > y ? 1 : 0);
+    });
     $('pend').innerHTML = pend.length ? pend.map(function (p) {
       var k = kindOf(p);
       return '<div class="card pend"><div class="what"><span class="k ' + k.c + '">' + esc(k.t) + '</span>' + esc(md(p['日付'])) + '</div><div>' + esc(nm(p['証券コード'], p['銘柄名'])) + '<span class="code">' + esc(p['証券コード']) + '</span></div>' +
@@ -546,8 +597,9 @@ button,input,select{font:inherit; color:inherit}
     var d = String(l['日付']), k = kindOf(l), pl = Number(l['確定損益'] || 0), showPl = NOT_PL.indexOf(l['区分']) < 0 && pl !== 0;
     var head = byDate ? (d < '2026-01-01' ? '去年から' : md(d)) : nm(String(l['証券コード']), l['銘柄名']);
     var detail = l['区分'] === '報酬精算' ? yen(-pl) : (Number(l['数量']).toLocaleString('ja-JP') + '株 × ' + price(Number(l['約定単価'])));
+    var more = state.role === 'owner' && l.__r !== undefined ? '<button class="more" type="button" data-r="' + l.__r + '" aria-label="この取引を直す・消す">︙</button>' : '';
     return '<div class="tx"><div><span class="k ' + k.c + '">' + esc(k.t) + '</span><span class="nm">' + esc(head) + '</span></div>' +
-      '<div class="dt">' + esc(detail) + '</div>' + (showPl ? '<div class="pl ' + cls(pl) + '">' + esc(yen(pl, true)) + '</div>' : '') + '</div>';
+      '<div class="dt">' + esc(detail) + '</div>' + (showPl ? '<div class="pl ' + cls(pl) + '">' + esc(yen(pl, true)) + '</div>' : '') + more + '</div>';
   }
 
   // 今年売り買いした銘柄ごと（損益・回数・最後の日。押すと取引が開く）
@@ -585,26 +637,221 @@ button,input,select{font:inherit; color:inherit}
   $('q').addEventListener('input', function () { state.q = this.value; render(); });
 
   // ---- 記録の操作（本人だけ） ----
+  // ★2026-11-12 本人「確定ボタン押さない限り自動的に登録しないで」「すぐに消せない編集できないとかあり得ない」
+  //   ＝記録・直す・消すは、確認の画面で「確定」を押した時だけ送る。Enter（スマホの送信キー）では送らない。記録と消すの直後は「取り消す／元に戻す」
+  var TRADE = ['買い', '売り', '新規売り', '買い戻し'];
+  function truthy(v) { return v === true || v === 'TRUE' || v === 'True' || v === 'true'; }
+  function sigOf(l) {   // 受け口（core.js の sigOf）と同じ名札
+    return [String(l['日付']).slice(0, 10), String(l['区分']), String(l['証券コード']).trim(), Math.trunc(Number(l['数量'])) || 0,
+      Math.round((Number(l['約定単価']) || 0) * 10000) / 10000, truthy(l['ボーナス']) ? 1 : 0].join('|');
+  }
+  // 確認の画面
+  function openSheet(o) {
+    $('shTitle').textContent = o.title;
+    $('shBody').innerHTML = o.body || '';
+    var bx = $('shBtns'), bs = (o.buttons || []).filter(Boolean);
+    bx.innerHTML = ''; bx.className = 'btns' + (bs.length === 1 ? ' one' : '');
+    bs.forEach(function (b) {
+      var e = document.createElement('button'); e.type = 'button'; e.className = 'btn' + (b.cls ? ' ' + b.cls : ''); e.textContent = b.text;
+      e.addEventListener('click', function () { if (!e.disabled) b.fn(e); });
+      bx.appendChild(e);
+    });
+    $('shCancel').textContent = o.cancel || 'やめる';
+    $('shCancel').classList.toggle('hidden', !!o.noCancel);   // 「戻る」ボタンがある時は、同じ働きの「やめる」を出さない
+    $('sheet').dataset.busy = '';
+    $('sheet').classList.remove('hidden'); document.body.classList.add('noscroll');
+  }
+  function closeSheet() { $('sheet').classList.add('hidden'); document.body.classList.remove('noscroll'); }
+  function busy(btn, t) { $('sheet').dataset.busy = '1'; Array.prototype.forEach.call($('shBtns').children, function (b) { b.disabled = true; }); if (btn) btn.textContent = t; }
+  $('shBg').addEventListener('click', function () { if (!$('sheet').dataset.busy) closeSheet(); });
+  $('shCancel').addEventListener('click', function () { if (!$('sheet').dataset.busy) closeSheet(); });
+  document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape' && !$('sheet').classList.contains('hidden') && !$('sheet').dataset.busy) closeSheet(); });
+  // お知らせ＋取り消しのボタン
+  function toastAct(t, act, fn) {
+    Array.prototype.forEach.call(document.querySelectorAll('.toast'), function (x) { x.remove(); });
+    var e = document.createElement('div'); e.className = 'toast act';
+    var s = document.createElement('span'); s.textContent = t; e.appendChild(s);
+    var b = document.createElement('button'); b.type = 'button'; b.textContent = act;
+    b.addEventListener('click', function () { e.remove(); fn(); });
+    e.appendChild(b); document.body.appendChild(e);
+    setTimeout(function () { e.remove(); }, 15000);
+  }
+  // うまくいかなかった時は、必ず読み直す（受け口では書けていることがある＝そのまま押し直すと二重になる・別の目 2026-11-12）
+  function fail(j) {
+    if (j && j.demo) return;
+    if (!j || j.error !== 'not_allowed') toast(j && j.error ? j.error : '届いたか分からないので、読み直しました。表を確かめてからもう一度');
+    if (!DEMO) load();
+  }
+  // 売り・買い戻しは、その日の時点で持っている（建てている）株より多くは選べない
+  //   （同じ日の買いより先に売りを記録すると、損益が0のまま株が残る＝別の目 2026-11-12）
+  function holdCheck(tx, skip) {
+    if (tx.type !== '売り' && tx.type !== '買い戻し') return '';
+    var logs = cleanLogs(state.data.logs || []), drop = skip ? skip.nth : -1, seen = 0;
+    logs = logs.filter(function (l) {
+      if (skip && sigOf(l) === skip.sig) { if (seen++ === drop) return false; }
+      return String(l['日付']).slice(0, 10) <= tx.date;
+    });
+    var p = JPG.recalculateAll(logs).portfolio.get(tx.code), have = p ? p.qty : 0, side = p ? p.position_side : 'long';
+    if (tx.type === '売り' && (side === 'short' || have < tx.qty)) return 'この日の時点で持っている株は ' + have.toLocaleString('ja-JP') + '株です。売る株数のほうが多いので、先に買いを記録してください。';
+    if (tx.type === '買い戻し' && (side !== 'short' || have < tx.qty)) return 'この日の時点の新規売りは ' + (side === 'short' ? have.toLocaleString('ja-JP') : 0) + '株です。先に新規売りを記録してください。';
+    return '';
+  }
+  function warnHtml(t) { return t ? '<p class="fmsg" style="margin-top:12px">' + esc(t) + '</p>' : ''; }
+  function plain(j) { if (j && j.ok) { toast(j.msg || '済みました'); load(); } else fail(j); }
+  // 1件の中身を大きく見せる
+  function sumHtml(o) {
+    var k = kindOf({ '区分': o.type, '日付': o.date, 'ボーナス': o.bonus }), nmx = o.name || (state.names || {})[o.code] || '';
+    var amount = o.qty * o.price;
+    return '<div class="sum"><div class="r1"><span class="k ' + k.c + '">' + esc(k.t) + '</span><span>' + esc(String(o.date) < '2026-01-01' ? '去年から' : md(o.date)) + '</span></div>' +
+      '<div class="r2">' + (nmx ? esc(nmx) + '<span class="code">' + esc(o.code) + '</span>' : esc(o.code) + '<span class="code">名前なし</span>') + '</div>' +
+      (o.type === '報酬精算' ? '<div class="r3">' + esc(yen(o.amount || 0)) + '</div>' :
+        '<div class="r3">' + Number(o.qty).toLocaleString('ja-JP') + '株 × ' + price(o.price) + '</div><div class="r4">合計 ' + esc(yen(amount)) + '</div>') + '</div>';
+  }
+  function rowObj(l) {
+    return { type: l['区分'], date: String(l['日付']).slice(0, 10), code: String(l['証券コード']), name: state.nm(String(l['証券コード']), l['銘柄名']),
+      qty: Number(l['数量']), price: Number(l['約定単価']), bonus: truthy(l['ボーナス']), amount: -Number(l['確定損益'] || 0) };
+  }
+
+  // ---- 手で記録する・直す ----
   function ftype() { var r = document.querySelector('input[name="ftype"]:checked'); return r ? r.value : '買い'; }
+  function setType(t) { Array.prototype.forEach.call(document.querySelectorAll('input[name="ftype"]'), function (r) { r.checked = r.value === t; }); $('fBonusWrap').classList.toggle('hidden', t !== '売り'); }
   $('fType').addEventListener('change', function () { $('fBonusWrap').classList.toggle('hidden', ftype() !== '売り'); });
-  $('txForm').addEventListener('submit', function (ev) {
+  function normCode(v) { return String(v || '').normalize('NFKC').trim().toUpperCase(); }
+  function nameHint() {
+    var c = normCode($('fCode').value), known = (state.names || {})[c], f = $('fName');
+    if (known && !f.dataset.user) f.value = known;
+    if (!known && !f.dataset.user && f.dataset.auto) f.value = '';
+    f.dataset.auto = known ? '1' : '';
+    $('fHint').textContent = c.length < 4 ? '' : (known ? '記録にある銘柄です' : '初めての銘柄です。名前を入れておくと見やすくなります（空のままでも記録できます）');
+  }
+  $('fCode').addEventListener('input', nameHint);
+  $('fName').addEventListener('input', function () { this.dataset.user = this.value.trim() ? '1' : ''; });
+  // Enter（スマホの送信・次へ）は、次の欄へ進むだけ。記録はしない
+  $('txForm').addEventListener('keydown', function (ev) {
+    if (ev.key !== 'Enter' || ev.isComposing || ev.target.tagName !== 'INPUT') return;
     ev.preventDefault();
-    var t = ftype();
-    var tx = { type: t, date: $('fDate').value, code: $('fCode').value.trim().toUpperCase(), qty: Number($('fQty').value), price: Number($('fPrice').value), bonus: $('fBonus').checked && t === '売り' };
-    call('add', { tx: tx }).then(after);
+    var order = ['fDate', 'fCode', 'fName', 'fQty', 'fPrice'], i = order.indexOf(ev.target.id);
+    if (i >= 0 && i < order.length - 1) $(order[i + 1]).focus(); else ev.target.blur();
   });
+  $('txForm').addEventListener('submit', function (ev) { ev.preventDefault(); });
+  function readForm() {
+    var t = ftype(), d = $('fDate').value, code = normCode($('fCode').value), qty = Number($('fQty').value), pr = Number($('fPrice').value);
+    var err = !d ? '日付を入れてください' : !/^[0-9A-Z]{4,5}$/.test(code) ? '証券コードは4〜5けたで入れてください' :
+      !(qty > 0 && Math.trunc(qty) === qty) ? '株数を入れてください' : !(pr > 0) ? '1株の値段を入れてください' : '';
+    return { err: err, tx: { type: t, date: d, code: code, qty: qty, price: pr, bonus: $('fBonus').checked && t === '売り', name: $('fName').value.trim() } };
+  }
+  function resetForm() {
+    state.edit = null;
+    $('editBar').classList.add('hidden'); $('recTitle').textContent = '✍️ 手で記録する'; $('recCard').classList.remove('is-edit');
+    ['fCode', 'fName', 'fQty', 'fPrice'].forEach(function (id) { $(id).value = ''; });
+    $('fName').dataset.user = ''; $('fName').dataset.auto = ''; $('fHint').textContent = ''; $('fMsg').textContent = '';
+    $('fBonus').checked = false; setType('買い');
+  }
+  $('editCancel').addEventListener('click', resetForm);
+  $('fCheck').addEventListener('click', function () {
+    var f = readForm(); $('fMsg').textContent = f.err;
+    if (f.err) return;
+    var ed = state.edit, tx = f.tx, warn = holdCheck(tx, ed);
+    openSheet({
+      title: warn ? 'このままでは記録できません' : (ed ? 'この内容に直しますか？' : 'この内容で記録しますか？'),
+      body: (ed ? '<p class="was">直す前：<b>' + esc(kindOf(ed.l).t) + ' ' + esc(md(ed.l['日付'])) + ' ' + Number(ed.l['数量']).toLocaleString('ja-JP') + '株 × ' + esc(price(Number(ed.l['約定単価']))) + '</b></p>' : '') + sumHtml(tx) + warnHtml(warn),
+      noCancel: true, buttons: [{ text: '戻って直す', fn: closeSheet },
+        !warn && { text: ed ? '直す（確定）' : '記録する（確定）', cls: 'main', fn: function (b) {
+          busy(b, '送っています…');
+          (ed ? call('edit', { sig: ed.sig, nth: ed.nth, count: (state.sigCount || {})[ed.sig], tx: tx }) : call('add', { tx: tx })).then(function (j) {
+            closeSheet();
+            if (!j || !j.ok) { fail(j); return; }
+            resetForm(); load();
+            if (ed) toast('直しました');
+            else toastAct('記録しました', '取り消す', function () { call('remove', { sig: j.sig, nth: -1 }).then(plain); });
+          }).catch(function () { closeSheet(); fail(null); });
+        } }]
+    });
+  });
+
+  // ---- 履歴・銘柄の行の「︙」＝直す・消す ----
+  document.addEventListener('click', function (ev) {
+    var b = ev.target.closest('.more'); if (!b) return;
+    ev.preventDefault();
+    var r = state.rows[Number(b.dataset.r)]; if (!r) return;
+    var canEdit = TRADE.indexOf(r.l['区分']) >= 0;
+    openSheet({
+      title: 'この取引をどうしますか？', body: sumHtml(rowObj(r.l)),
+      buttons: [canEdit && { text: '✏️ 直す', fn: function () { closeSheet(); startEdit(r); } },
+        { text: '🗑 消す', fn: function () { confirmDelete(r); } }]
+    });
+  });
+  function startEdit(r) {
+    var o = rowObj(r.l);
+    state.edit = { sig: r.sig, nth: r.nth, l: r.l };
+    setType(o.type); $('fDate').value = o.date; $('fCode').value = o.code; $('fName').value = o.name; $('fName').dataset.user = '1';
+    $('fQty').value = o.qty; $('fPrice').value = o.price; $('fBonus').checked = o.bonus; $('fMsg').textContent = ''; $('fHint').textContent = '';
+    $('editBar').classList.remove('hidden'); $('recTitle').textContent = '✏️ 取引を直す'; $('recCard').classList.add('is-edit');
+    setView('rec');
+    setTimeout(function () { $('recCard').scrollIntoView({ block: 'start' }); }, 30);
+  }
+  function confirmDelete(r) {
+    openSheet({
+      title: 'この取引を消しますか？', body: sumHtml(rowObj(r.l)) + '<p class="note">消したあと、下に出る「元に戻す」で戻せます。</p>',
+      noCancel: true, buttons: [{ text: '戻る', fn: closeSheet },
+        { text: '消す（確定）', cls: 'main', fn: function (b) {
+          busy(b, '消しています…');
+          call('remove', { sig: r.sig, nth: r.nth, count: (state.sigCount || {})[r.sig] }).then(function (j) {
+            closeSheet();
+            if (!j || !j.ok) { fail(j); return; }
+            if (state.edit && state.edit.sig === r.sig) resetForm();
+            load();
+            toastAct('消しました', '元に戻す', function () { call('restore', { row: j.removed, at: j.at }).then(plain); });
+          }).catch(function () { closeSheet(); fail(null); });
+        } }]
+    });
+  }
+  // 支払い完了も、確認の画面で「確定」を押した時だけ（前の「2回押し」は素早く2回押すと記録された・別の目 2026-11-12）
   $('payBtn').addEventListener('click', function () {
-    var b = this;
-    if (!b.classList.contains('armed')) { b.classList.add('armed'); b.textContent = 'もう一度押すと記録します'; setTimeout(function () { b.classList.remove('armed'); b.textContent = '支払い完了にする'; }, 5000); return; }
-    b.classList.remove('armed'); b.textContent = '支払い完了にする';
-    call('pay', { expectBase: Number(b.dataset.base) }).then(after);
+    var base = Number(this.dataset.base);
+    openSheet({
+      title: '成功報酬を払ったと記録しますか？',
+      body: '<div class="sum"><div class="r2">払った報酬</div><div class="r3">' + esc($('payAmt').textContent) + '</div><div class="r4">記録すると、未払いが ¥0 になります。残債は変わりません。</div></div>',
+      noCancel: true, buttons: [{ text: '戻る', fn: closeSheet },
+        { text: '払った（確定）', cls: 'main', fn: function (b) {
+          busy(b, '送っています…');
+          call('pay', { expectBase: base }).then(function (j) {
+            closeSheet();
+            if (!j || !j.ok) { fail(j); return; }
+            toast(j.msg || '記録しました'); load();
+          }).catch(function () { closeSheet(); fail(null); });
+        } }]
+    });
   });
   $('pend').addEventListener('click', function (ev) {
     var r = ev.target.closest('[data-rec]'), s = ev.target.closest('[data-skip]');
     var id = (r || s) && (r || s).getAttribute(r ? 'data-rec' : 'data-skip'); if (!id) return;
     var p = (state.data.pending || []).filter(function (x) { return String(x.id) === id; })[0]; if (!p) return;
-    if (r) call('add', { tx: { type: p['区分'], date: p['日付'], code: p['証券コード'], name: p['銘柄名'], qty: p['数量'], price: p['約定単価'], bonus: false, pendingId: id } }).then(after);
-    else call('dismissPending', { id: id }).then(after);
+    if (s) {   // 見送る＝すぐ消える・「元に戻す」で候補に戻せる
+      call('dismissPending', { id: id }).then(function (j) {
+        if (!j || !j.ok) { fail(j); return; }
+        load(); toastAct('見送りました', '元に戻す', function () { call('undismiss', { id: id }).then(plain); });
+      });
+      return;
+    }
+    var tx = { type: p['区分'], date: String(p['日付']).slice(0, 10), code: String(p['証券コード']), name: p['銘柄名'], qty: Number(p['数量']), price: Number(p['約定単価']), bonus: false, pendingId: id };
+    var warn = holdCheck(tx, null);
+    openSheet({
+      title: warn ? 'まだ記録できません' : 'この取引を記録しますか？',
+      body: sumHtml(tx) + '<p class="note">約定メール（' + esc(p['受信'] || '') + '）から見つけた取引です。</p>' + warnHtml(warn),
+      noCancel: true, buttons: [{ text: '戻る', fn: closeSheet },
+        !warn && { text: '記録する（確定）', cls: 'main', fn: function (b) {
+          busy(b, '送っています…');
+          call('add', { tx: tx }).then(function (j) {
+            closeSheet();
+            if (!j || !j.ok) { fail(j); return; }
+            load();
+            toastAct('記録しました', '取り消す', function () {
+              call('remove', { sig: j.sig, nth: -1 }).then(function (k) { if (k && k.ok) call('undismiss', { id: id }).then(plain); else fail(k); });
+            });
+          }).catch(function () { closeSheet(); fail(null); });
+        } }]
+    });
   });
   function after(j) {
     if (!j || j.demo) return;
