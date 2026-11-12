@@ -1,0 +1,641 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#0a0d14">
+<title>J_Phantom_Gear</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;800&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
+<style>
+/* J_Phantom_Gear（今のアプリ）の味を引き継ぐ：名前・⚙️・絵文字の見出し・🔴買い 🔵売り 🟠新規売り 🟢買い戻し・¥・プラス赤／マイナス青
+   見た目は「黒地に歯車」。読み手はスマホが主＝文字17px以上・押す所は高さ52px以上 */
+:root{
+  --bg:#0a0d14; --panel:#121826; --panel2:#171f31; --line:#243049; --line2:#2e3b57;
+  --ink:#eef2f8; --sub:#a3afc4; --mute:#76839b;
+  --accent:#ff4b4b; --accent-soft:rgba(255,75,75,.14);
+  --plus:#ff6363; --minus:#58a6ff; --zero:#eef2f8;
+  --gold:#f3c552; --gold-soft:rgba(243,197,82,.12);
+  --buy:#ff6363; --sell:#58a6ff; --short:#ff9f43; --cover:#3ddc97; --carry:#8a96ad;
+  --num:"Rajdhani","Hiragino Sans","Noto Sans JP","Yu Gothic UI",Meiryo,sans-serif;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%; background:var(--bg)}
+body{margin:0; color:var(--ink); min-height:100vh;
+  background:radial-gradient(900px 420px at 50% -160px, rgba(255,75,75,.16), transparent 70%), var(--bg);
+  font:17px/1.65 system-ui,-apple-system,"Hiragino Sans","Noto Sans JP","Yu Gothic UI",Meiryo,sans-serif;
+  word-break:auto-phrase; font-variant-numeric:tabular-nums}
+button,input,select{font:inherit; color:inherit}
+.wrap{max-width:720px; margin:0 auto; padding:14px 16px 118px}
+.hidden{display:none !important}
+.num{font-family:var(--num); font-weight:700; letter-spacing:.01em}
+.kp{word-break:keep-all}
+.nw{white-space:nowrap}
+
+/* 歯車 */
+.gear{width:40px; height:40px; color:var(--accent); flex:none; filter:drop-shadow(0 0 10px rgba(255,75,75,.45)); animation:spin 16s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){.gear{animation:none}}
+
+/* 上の帯 */
+.top{display:flex; align-items:center; gap:12px; padding:4px 0 14px}
+.brand{flex:1; min-width:0}
+.wm{font-family:"Orbitron",var(--num); font-weight:800; font-size:clamp(18px,5.6vw,24px); letter-spacing:.03em; line-height:1.2; white-space:nowrap;
+  background:linear-gradient(90deg,#ffffff,#c9d2e3 60%,#8b97ad); -webkit-background-clip:text; background-clip:text; color:transparent}
+.meta{display:flex; flex-wrap:wrap; align-items:center; gap:4px 10px; margin-top:2px}
+.asof{font-size:14px; color:var(--sub)}
+.role{flex:none; font-size:13px; padding:1px 10px; border-radius:999px; border:1px solid rgba(255,75,75,.45); color:#ffb3b3; background:var(--accent-soft)}
+.role.wife{border-color:rgba(61,220,151,.45); color:#9ff0c9; background:rgba(61,220,151,.1)}
+
+/* カード */
+.card{position:relative; background:linear-gradient(180deg,var(--panel2),var(--panel)); border:1px solid var(--line); border-radius:18px;
+  padding:16px; margin:0 0 14px; box-shadow:0 12px 30px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.04)}
+.card h2{margin:0 0 12px; font-size:18px; display:flex; align-items:center; gap:8px}
+.card h2 small{font-size:14px; color:var(--sub); font-weight:400}
+.note{margin:8px 0 0; color:var(--sub); font-size:15px}
+.plus{color:var(--plus)} .minus{color:var(--minus)} .zero{color:var(--zero)}
+
+.hero{text-align:center; padding:22px 16px 18px; overflow:hidden}
+.hero::before{content:""; position:absolute; left:0; right:0; top:0; height:3px; background:linear-gradient(90deg,transparent,var(--accent),transparent)}
+.hero .label{font-size:15px; color:var(--sub); letter-spacing:.06em}
+.hero .big{font-family:var(--num); font-weight:700; font-size:56px; line-height:1.15; margin:6px 0 4px}
+.hero .big.plus{text-shadow:0 0 28px rgba(255,99,99,.45)}
+.hero .big.minus{text-shadow:0 0 28px rgba(88,166,255,.45)}
+.hero .big .cur{font-size:30px; margin:0 2px}
+
+.rows{display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px 12px; align-items:baseline; margin:0}
+.rows dt{color:var(--sub)} .rows dd{margin:0; text-align:right; font-family:var(--num); font-weight:700; font-size:22px}
+.rows .total{font-size:28px}
+.line{border:0; border-top:1px solid var(--line); margin:12px 0}
+.hl{color:#ffd1d1}
+
+.bonus{border-color:rgba(243,197,82,.35); background:linear-gradient(180deg,rgba(243,197,82,.10),var(--panel) 70%)}
+.bonus h2{color:var(--gold)}
+.bonus dd{color:var(--gold)}
+
+/* 月ごとの棒（真ん中から左右） */
+.months{display:grid; gap:8px}
+.mrow{display:grid; grid-template-columns:2.6em minmax(0,1fr) 7.6em; gap:10px; align-items:center}
+.mrow .m{color:var(--sub); font-size:15px}
+.track{position:relative; height:12px; background:#0d1220; border-radius:6px; overflow:hidden; box-shadow:inset 0 0 0 1px #1c263b}
+.track::after{content:""; position:absolute; left:50%; top:0; bottom:0; width:1px; background:#2b3853}
+.bar{position:absolute; top:0; bottom:0; border-radius:6px}
+.bar.plus{left:50%; background:linear-gradient(90deg,#ff4b4b,#ff8a8a); box-shadow:0 0 10px rgba(255,75,75,.5)}
+.bar.minus{right:50%; background:linear-gradient(270deg,#2f81f7,#7cc0ff); box-shadow:0 0 10px rgba(47,129,247,.5)}
+.mrow .v{text-align:right; font-family:var(--num); font-weight:700; font-size:18px}
+
+/* 持ち株・銘柄 */
+.hold h3{margin:0; font-size:19px}
+.code{color:var(--mute); font-size:14px; font-weight:400; margin-left:6px; font-family:var(--num)}
+.badge{display:inline-block; font-size:13px; padding:2px 10px; border-radius:999px; background:var(--gold-soft); color:var(--gold); border:1px solid rgba(243,197,82,.35); margin:8px 0 2px}
+.kv{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-top:10px}
+.kv div{background:#0e1422; border:1px solid #1d273c; border-radius:12px; padding:8px 12px}
+.kv span{display:block; font-size:13px; color:var(--sub)}
+.kv b{font-family:var(--num); font-size:21px}
+
+.st{border-top:1px solid var(--line)}
+.st:first-child{border-top:0}
+.st summary{list-style:none; cursor:pointer; display:grid; grid-template-columns:minmax(0,1fr) auto; gap:2px 12px; padding:12px 0; min-height:52px}
+.st summary::-webkit-details-marker{display:none}
+.st .snm{font-weight:700; font-size:18px}
+.st .ssub{grid-column:1; color:var(--sub); font-size:14px}
+.st .spl{grid-column:2; grid-row:1 / span 2; align-self:center; text-align:right; font-family:var(--num); font-weight:700; font-size:21px}
+.st .spl::after{content:"▾"; color:var(--mute); font-size:13px; margin-left:6px}
+.st[open] .spl::after{content:"▴"}
+.st .have{display:inline-block; font-size:12px; padding:0 8px; border-radius:6px; background:rgba(61,220,151,.12); color:var(--cover); border:1px solid rgba(61,220,151,.35); margin-left:6px; vertical-align:2px}
+.st .body{padding:0 0 10px 12px; border-left:2px solid var(--line2); margin-bottom:10px}
+.st .body .tx:first-child{border-top:0}
+.sorts{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-bottom:6px}
+
+/* 選ぶボタン（月・並べ方） */
+.chips{display:flex; gap:8px; overflow-x:auto; padding:2px 0 10px; scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none; min-height:44px; padding:0 16px; border-radius:999px; border:1px solid var(--line2); background:#0e1422; color:var(--sub); white-space:nowrap}
+.sorts .chip{padding:0 4px; font-size:16px}
+.chip[aria-pressed="true"]{color:#fff; border-color:rgba(255,75,75,.7); background:linear-gradient(180deg,rgba(255,75,75,.30),rgba(255,75,75,.12)); box-shadow:0 0 14px rgba(255,75,75,.25)}
+.search{width:100%; min-height:52px; padding:0 14px; border:1px solid var(--line2); border-radius:14px; background:#0e1422; color:var(--ink); margin-bottom:12px}
+.search::placeholder{color:var(--mute)}
+
+/* 取引1行（🔴買い 🔵売り 🟠新規売り 🟢買い戻し） */
+.day{margin:16px 0 4px; font-size:14px; color:var(--sub); font-weight:700; letter-spacing:.04em}
+.day:first-child{margin-top:0}
+.tx{display:grid; grid-template-columns:minmax(0,1fr) auto; gap:2px 12px; padding:10px 0; border-top:1px solid var(--line)}
+.day + .tx{border-top:0}
+.k{display:inline-flex; align-items:center; gap:5px; font-size:13px; padding:0 8px; border-radius:6px; margin-right:8px; vertical-align:2px; border:1px solid currentColor; line-height:1.7}
+.k::before{content:""; width:7px; height:7px; border-radius:50%; background:currentColor}
+.k.buy{color:var(--buy)} .k.sell{color:var(--sell)} .k.short{color:var(--short)} .k.cover{color:var(--cover)} .k.carry{color:var(--carry)} .k.gold{color:var(--gold)}
+.tx .nm{font-weight:700}
+.tx .dt{grid-column:1; color:var(--sub); font-size:15px; font-family:var(--num); font-weight:600}
+.tx .pl{grid-column:2; grid-row:1 / span 2; align-self:center; text-align:right; font-family:var(--num); font-weight:700; font-size:20px}
+.empty{color:var(--sub); text-align:center; padding:18px 0}
+
+/* 記録 */
+.pend{border:1px solid rgba(255,159,67,.55); background:linear-gradient(180deg,rgba(255,159,67,.12),var(--panel) 80%)}
+.pend .what{font-size:18px; font-weight:700}
+.btns{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:12px}
+.btn{min-height:52px; border-radius:14px; border:1px solid var(--line2); background:#0e1422; color:var(--ink); font-weight:700; padding:0 12px; cursor:pointer}
+.btn.main{border-color:transparent; color:#fff; background:linear-gradient(180deg,#ff5a5a,#d93636); box-shadow:0 6px 18px rgba(255,75,75,.35)}
+.btn.wide{width:100%}
+.btn[disabled]{opacity:.45; cursor:default}
+.btn.armed{background:linear-gradient(180deg,#ff9f43,#e07b16); color:#1a1205; border-color:transparent}
+.form{display:grid; gap:12px}
+.form label{display:grid; gap:4px; font-size:14px; color:var(--sub)}
+.form input,.form select{min-width:0; min-height:52px; padding:0 12px; border:1px solid var(--line2); border-radius:14px; background:#0e1422; color:var(--ink); font-size:18px; width:100%; color-scheme:dark}
+.form input:focus,.search:focus{outline:2px solid rgba(255,75,75,.6); outline-offset:1px}
+.two{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px}
+.types{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; border:0; margin:0; padding:0}
+.types label{position:relative; display:block; color:var(--ink); font-size:17px}
+.types input{position:absolute; opacity:0; inset:0; margin:0; cursor:pointer}
+.types span{display:flex; align-items:center; justify-content:center; min-height:52px; border-radius:14px; border:1px solid var(--line2); background:#0e1422; font-weight:700}
+.types input:checked + span{border-color:currentColor; box-shadow:0 0 0 1px currentColor inset, 0 0 16px rgba(255,255,255,.06)}
+.types input:focus-visible + span{outline:2px solid #fff}
+.types .t-buy{color:var(--buy)} .types .t-sell{color:var(--sell)} .types .t-short{color:var(--short)} .types .t-cover{color:var(--cover)}
+.check{display:flex !important; align-items:center; gap:10px; color:var(--ink) !important; font-size:16px !important}
+.check input{width:24px; height:24px; min-height:0; accent-color:var(--accent)}
+
+/* 下のタブ（均等の幅） */
+.tabs{position:fixed; left:0; right:0; bottom:0; z-index:10; background:rgba(10,13,20,.86); -webkit-backdrop-filter:blur(12px); backdrop-filter:blur(12px);
+  border-top:1px solid var(--line); padding:8px 12px calc(8px + env(safe-area-inset-bottom))}
+.tabs .in{max-width:720px; margin:0 auto; display:grid; grid-template-columns:repeat(var(--n,4),minmax(0,1fr)); gap:8px}
+.tab{min-height:56px; border-radius:14px; border:1px solid transparent; background:transparent; color:var(--mute); font-weight:700; font-size:15px;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; cursor:pointer}
+.tab svg{width:22px; height:22px}
+.tab[aria-selected="true"]{color:#fff; border-color:rgba(255,75,75,.5); background:linear-gradient(180deg,rgba(255,75,75,.22),rgba(255,75,75,.06)); box-shadow:0 0 18px rgba(255,75,75,.18)}
+
+/* 暗証番号の画面 */
+.lock{min-height:100vh; display:grid; place-items:center; padding:24px 16px}
+.lock .card{width:100%; max-width:420px; padding:28px 22px; text-align:center}
+.lock .gear{width:64px; height:64px; margin:0 auto 6px; display:block}
+.lock .wm{font-size:24px; margin-bottom:14px}
+.lock h2{font-size:20px; margin:0 0 6px; display:block}
+.lock p{margin:0 0 16px; color:var(--sub)}
+.pin{width:100%; min-height:62px; font-family:var(--num); font-size:30px; letter-spacing:.35em; text-align:center; border:1px solid var(--line2); border-radius:14px; background:#0e1422; color:var(--ink); margin-bottom:12px}
+.pin:focus{outline:2px solid rgba(255,75,75,.6)}
+.msg{min-height:1.6em; text-align:center; font-weight:700; margin-top:10px}
+.msg.bad{color:var(--plus)} .msg.good{color:var(--cover)}
+
+.toast{position:fixed; left:50%; bottom:100px; transform:translateX(-50%); background:#1b2335; border:1px solid var(--line2); color:#fff; padding:10px 16px; border-radius:12px; max-width:calc(100% - 32px); font-size:16px; z-index:20}
+.foot{text-align:center; margin:18px 0 0}
+.link{background:none; border:0; color:var(--mute); text-decoration:underline; min-height:44px; padding:0 8px; cursor:pointer}
+.demo{background:rgba(255,159,67,.12); color:#ffc58f; border:1px solid rgba(255,159,67,.4); border-radius:12px; padding:6px 10px; font-size:14px; margin-bottom:12px; text-align:center}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <g id="gearShape">
+      <rect x="28" y="2" width="8" height="12" rx="2"/><rect x="28" y="2" width="8" height="12" rx="2" transform="rotate(45 32 32)"/>
+      <rect x="28" y="2" width="8" height="12" rx="2" transform="rotate(90 32 32)"/><rect x="28" y="2" width="8" height="12" rx="2" transform="rotate(135 32 32)"/>
+      <rect x="28" y="2" width="8" height="12" rx="2" transform="rotate(180 32 32)"/><rect x="28" y="2" width="8" height="12" rx="2" transform="rotate(225 32 32)"/>
+      <rect x="28" y="2" width="8" height="12" rx="2" transform="rotate(270 32 32)"/><rect x="28" y="2" width="8" height="12" rx="2" transform="rotate(315 32 32)"/>
+      <circle cx="32" cy="32" r="20"/>
+    </g>
+  </defs>
+</svg>
+
+<!-- 暗証番号の画面（このブラウザで1回だけ） -->
+<div id="lock" class="lock hidden">
+  <div class="card">
+    <svg class="gear" viewBox="0 0 64 64" aria-hidden="true"><use href="#gearShape" fill="currentColor"/><circle cx="32" cy="32" r="8" fill="#121826"/></svg>
+    <div class="wm">J_Phantom_Gear</div>
+    <h2>暗証番号を<wbr>入れてください</h2>
+    <p>このブラウザで<wbr>1回だけ<wbr>入れれば、<wbr>次からは<wbr>開くだけで<wbr>見られます。</p>
+    <form id="lockForm" autocomplete="off">
+      <input id="pin" class="pin" type="password" inputmode="numeric" autocomplete="off" aria-label="暗証番号" maxlength="20">
+      <button class="btn main wide" type="submit">開く</button>
+    </form>
+    <div id="lockMsg" class="msg" role="status"></div>
+  </div>
+</div>
+
+<div id="app" class="wrap hidden">
+  <div id="demoNote" class="demo hidden">見本の画面です（記録は動きません）</div>
+  <header class="top">
+    <svg class="gear" viewBox="0 0 64 64" aria-hidden="true"><use href="#gearShape" fill="currentColor"/><circle cx="32" cy="32" r="8" fill="#0a0d14"/></svg>
+    <div class="brand"><div class="wm">J_Phantom_Gear</div><div class="meta"><span class="asof" id="asof"></span><span id="role" class="role"></span></div></div>
+  </header>
+
+  <!-- まとめ -->
+  <section id="v-sum">
+    <div class="card hero">
+      <div class="label">2026年の確定損益</div>
+      <div class="big" id="yearPl"></div>
+      <div class="note kp">1月1日から<wbr>今日まで。<wbr>去年から<wbr>持ち越した株の<wbr>売り買いも<wbr>含みます。</div>
+    </div>
+    <div class="card">
+      <h2>💰 成功報酬管理 <small>15%</small></h2>
+      <dl class="rows">
+        <dt>報酬の合計</dt><dd id="rwEarned"></dd>
+        <dt>支払い済み</dt><dd id="rwPaid"></dd>
+      </dl>
+      <hr class="line">
+      <dl class="rows">
+        <dt class="hl">未払い</dt><dd class="total" id="rwUnpaid"></dd>
+        <dt>今の残債</dt><dd id="rwDebt"></dd>
+      </dl>
+      <p class="note">利益が出た日に、<wbr>その分の15%。<wbr>損は残債として積み、<wbr>次の利益で取り返した後の分から数えます。</p>
+    </div>
+    <div class="card bonus" id="bonusCard">
+      <h2>🏆 恩株ボーナス <small>15%・受け取り済み</small></h2>
+      <dl class="rows"><dt id="bonusWhat"></dt><dd class="total" id="bonusAmt"></dd></dl>
+      <p class="note">恩株は買い取り済みです。<wbr>報酬の計算には入れません。</p>
+    </div>
+    <div class="card">
+      <h2>📈 月ごとの確定損益</h2>
+      <div class="months" id="months"></div>
+    </div>
+  </section>
+
+  <!-- 銘柄 -->
+  <section id="v-hold" class="hidden">
+    <div class="card">
+      <h2>📊 現在のポートフォリオ</h2>
+      <dl class="rows">
+        <dt>銘柄の数</dt><dd id="hCount"></dd>
+        <dt>買った金額の合計</dt><dd id="hCost"></dd>
+        <dt>含み損益</dt><dd id="hUnreal"></dd>
+      </dl>
+      <p class="note" id="hNote"></p>
+    </div>
+    <div id="holds"></div>
+    <div class="card">
+      <h2 id="stTitle">📜 銘柄別アーカイブ</h2>
+      <div class="sorts" id="stSort" role="group" aria-label="並べ方">
+        <button class="chip" data-s="recent" aria-pressed="true">新しい順</button>
+        <button class="chip" data-s="gain" aria-pressed="false">利益が多い</button>
+        <button class="chip" data-s="loss" aria-pressed="false">損が多い</button>
+      </div>
+      <div id="stocks"></div>
+      <p class="note">銘柄を押すと、<wbr>その銘柄の取引が開きます。</p>
+    </div>
+  </section>
+
+  <!-- 履歴 -->
+  <section id="v-hist" class="hidden">
+    <div class="chips" id="chips" role="group" aria-label="月で絞る"></div>
+    <input id="q" class="search" type="search" placeholder="銘柄名かコードで探す" aria-label="銘柄名かコードで探す">
+    <div class="card" id="hist"></div>
+  </section>
+
+  <!-- 記録（本人だけ） -->
+  <section id="v-rec" class="hidden">
+    <div class="card">
+      <h2>📨 約定メールから見つけた取引</h2>
+      <div id="pend"></div>
+    </div>
+    <div class="card">
+      <h2>✍️ 手で記録する</h2>
+      <form id="txForm" class="form" autocomplete="off">
+        <fieldset class="types" id="fType" aria-label="取引の種類">
+          <label class="t-buy"><input type="radio" name="ftype" value="買い" checked><span>🔴 買い</span></label>
+          <label class="t-sell"><input type="radio" name="ftype" value="売り"><span>🔵 売り</span></label>
+          <label class="t-short"><input type="radio" name="ftype" value="新規売り"><span>🟠 新規売り</span></label>
+          <label class="t-cover"><input type="radio" name="ftype" value="買い戻し"><span>🟢 買い戻し</span></label>
+        </fieldset>
+        <div class="two">
+          <label>日付<input id="fDate" type="date" required></label>
+          <label>証券コード<input id="fCode" inputmode="text" maxlength="5" placeholder="例 6590" required></label>
+        </div>
+        <div class="two">
+          <label>株数<input id="fQty" type="number" inputmode="numeric" min="1" step="1" required></label>
+          <label>1株の値段（¥）<input id="fPrice" type="number" inputmode="decimal" min="0" step="any" required></label>
+        </div>
+        <label class="check hidden" id="fBonusWrap"><input id="fBonus" type="checkbox">恩株化の売り（元手を回収して残りを恩株にする）</label>
+        <button class="btn main wide" type="submit">記録する</button>
+      </form>
+    </div>
+    <div class="card">
+      <h2>💰 報酬の支払い</h2>
+      <dl class="rows"><dt class="hl">未払い</dt><dd class="total" id="payAmt"></dd></dl>
+      <button class="btn wide" id="payBtn" type="button" style="margin-top:14px">支払い完了にする</button>
+      <p class="note">押すと「払った」と記録します。<wbr>残債は変わりません。</p>
+    </div>
+    <div class="card">
+      <h2>🏆 恩株の買い取り</h2>
+      <div id="settle"></div>
+    </div>
+  </section>
+
+  <div class="foot"><button class="link" id="forget" type="button">このブラウザで暗証番号を消す</button></div>
+</div>
+
+<nav class="tabs hidden" id="tabs"><div class="in" id="tabsIn">
+  <button class="tab" data-v="sum" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 13h4v8H3zM10 8h4v13h-4zM17 3h4v18h-4z"/></svg>まとめ</button>
+  <button class="tab" data-v="hold"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4v8l6 4"/></svg>銘柄</button>
+  <button class="tab" data-v="hist"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg>履歴</button>
+  <button class="tab" data-v="rec"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>記録</button>
+</div></nav>
+
+<script src="calc.js"></script>
+<script>
+(function () {
+  'use strict';
+  // ★受け口（Google）の場所＝置いた後に入れる。暗証番号で開く時に使う。
+  var HOME_D = 'AKfycbxfMhSNdW6GgF93cw7fh5aTI7fAzTnb_ISyiGrn0r-1aUiEn40fb1bxtf4l61pTu7k1';
+  var STORE = 'jpg.cfg.v1';          // このブラウザが覚える {d, k}（期限なし）
+  var ID_RE = /^[A-Za-z0-9_-]{20,120}$/, KEY_RE = /^[A-Za-z0-9_-]{16,128}$/;
+  var qs = new URLSearchParams(location.search);
+  var DEMO = qs.get('demo') === '1', DEMO_ROLE = qs.get('role') || 'owner';
+  var NOT_PL = ['データ調整', '報酬精算', '恩株精算'];
+  var $ = function (id) { return document.getElementById(id); };
+  var state = { data: null, role: '', month: '', q: '', sort: 'recent', open: {} };   // month＝'' は「いちばん新しい月」（最初から全部だと長すぎる）
+
+  // ---- 金額の書き方（今のアプリと同じ ¥・プラス赤／マイナス青） ----
+  function cls(n) { return n > 0 ? 'plus' : (n < 0 ? 'minus' : 'zero'); }
+  function comma(n) { return Math.abs(Math.round(n)).toLocaleString('ja-JP'); }
+  function sgn(n, sign) { return n < 0 ? '−' : (sign && n > 0 ? '+' : ''); }
+  function yen(n, sign) { n = Math.round(n || 0); return sgn(n, sign) + '¥' + comma(n); }
+  function money(el, n, sign) { el.textContent = yen(n, sign); el.className = (el.className.replace(/\b(plus|minus|zero)\b/g, '').trim() + ' ' + cls(sign ? n : (n < 0 ? n : 0))).trim(); }
+  function price(p) { return '¥' + (Math.round(p * 100) / 100).toLocaleString('ja-JP', { maximumFractionDigits: 2 }); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function md(d) { var p = String(d).split('-'); return Number(p[1]) + '月' + Number(p[2]) + '日'; }
+  function toast(t) { var e = document.createElement('div'); e.className = 'toast'; e.textContent = t; document.body.appendChild(e); setTimeout(function () { e.remove(); }, 2600); }
+
+  // ---- このブラウザが覚える鍵（リンクの # の後ろはサーバーに届かない） ----
+  function readConfig() {
+    try {
+      var h = new URLSearchParams(location.hash.slice(1)), d = h.get('d'), k = h.get('k');
+      if (ID_RE.test(d || '') && KEY_RE.test(k || '')) { localStorage.setItem(STORE, JSON.stringify({ d: d, k: k })); history.replaceState(null, '', location.pathname + location.search); }
+      var s = JSON.parse(localStorage.getItem(STORE) || 'null');
+      if (s && ID_RE.test(s.d) && KEY_RE.test(s.k)) return s;
+    } catch (e) { }
+    return null;
+  }
+  function api(d, body) {
+    return fetch('https://script.google.com/macros/s/' + d + '/exec', { method: 'POST', body: JSON.stringify(body), credentials: 'omit', redirect: 'follow' })
+      .then(function (r) { return r.json(); });
+  }
+  function call(action, extra) {
+    if (DEMO) { toast('見本なので記録しません'); return Promise.resolve({ ok: false, demo: true }); }
+    var c = readConfig(); if (!c) { showLock(); return Promise.resolve({ ok: false }); }
+    var body = Object.assign({ action: action, k: c.k }, extra || {});
+    return api(c.d, body).then(function (j) {
+      if (j && j.error === 'not_allowed') { try { localStorage.removeItem(STORE); } catch (e) { } showLock('暗証番号が変わりました。もう一度入れてください'); }
+      return j;
+    });
+  }
+
+  // ---- 暗証番号の画面 ----
+  function showLock(msg) {
+    $('app').classList.add('hidden'); $('tabs').classList.add('hidden'); $('lock').classList.remove('hidden');
+    var m = $('lockMsg'); m.textContent = msg || ''; m.className = 'msg' + (msg ? ' bad' : '');
+    if (!DEMO) setTimeout(function () { $('pin').focus(); }, 50);
+  }
+  $('lockForm').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var pin = $('pin').value.trim(), m = $('lockMsg');
+    if (!pin) { m.textContent = '暗証番号を入れてください'; m.className = 'msg bad'; return; }
+    if (DEMO) { m.textContent = '見本の画面です（開きません）'; m.className = 'msg bad'; return; }
+    if (!ID_RE.test(HOME_D)) { m.textContent = 'まだ準備中です'; m.className = 'msg bad'; return; }
+    m.textContent = '確かめています…'; m.className = 'msg';
+    api(HOME_D, { action: 'unlock', pin: pin }).then(function (j) {
+      if (j && j.ok && KEY_RE.test(j.k || '')) { localStorage.setItem(STORE, JSON.stringify({ d: HOME_D, k: j.k })); $('pin').value = ''; start(); return; }
+      var e = j && j.error;
+      m.className = 'msg bad';
+      m.textContent = e === 'locked' ? '何度もまちがえたので、24時間は開けません' : (e === 'wrong_pin' ? '暗証番号が違います（あと' + (j.left || 1) + '回）' : '開けませんでした。少し待ってからもう一度');
+    }).catch(function () { m.className = 'msg bad'; m.textContent = 'つながりませんでした。電波を確かめてもう一度'; });
+  });
+  $('forget').addEventListener('click', function () {
+    if (DEMO) { toast('見本なので消しません'); return; }
+    try { localStorage.removeItem(STORE); } catch (e) { }
+    showLock();
+  });
+
+  // ---- タブ ----
+  var VIEWS = ['sum', 'hold', 'hist', 'rec'];
+  function setView(v) {
+    VIEWS.forEach(function (x) { $('v-' + x).classList.toggle('hidden', x !== v); });
+    Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (b) { b.setAttribute('aria-selected', b.dataset.v === v ? 'true' : 'false'); });
+    try { sessionStorage.setItem('jpg.view', v); } catch (e) { }
+    window.scrollTo(0, 0);
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (b) { b.addEventListener('click', function () { setView(b.dataset.v); }); });
+
+  // ---- 計算（今のアプリと同じ calc.js） ----
+  function cleanLogs(rows) { return rows.map(function (r) { var o = {}; for (var k in r) if (k.charAt(0) !== '_') o[k] = r[k]; return o; }); }
+  // 見せる名前＝全角の英数字を半角に・頭の（株）と後ろのかっこ書き（略称）を外す（長い名前がかっこの中で折れないように）
+  function shortName(n) { return String(n || '').normalize('NFKC').replace(/^\(株\)\s*/, '').replace(/\s*\([^()]*\)\s*$/, '').trim(); }
+  function nameMap(logs, res) {
+    var m = {};
+    logs.forEach(function (l) {   // 日本語の名前を優先（英語の名前は、日本語が無い時だけ）
+      var n = String(l['銘柄名'] || ''), c = String(l['証券コード']);
+      if (!JPG.isCleanName(n)) return;
+      if (JPG.containsJapanese(n) || !m[c] || !JPG.containsJapanese(m[c])) m[c] = shortName(n);
+    });
+    res.portfolio.forEach(function (v, c) { if (JPG.isCleanName(v.name) && !m[c]) m[c] = shortName(v.name); });
+    return m;
+  }
+  // 取引の種類（今のアプリの色分け＝🔴買い 🔵売り 🟠新規売り 🟢買い戻し）
+  function kindOf(l) {
+    var k = l['区分'], d = String(l['日付']);
+    if (d < '2026-01-01') return { t: '去年から繰越', c: 'carry' };
+    if (k === '恩株精算') return { t: '恩株の買い取り', c: 'gold' };
+    if (k === '報酬精算') return { t: '報酬の支払い', c: 'gold' };
+    if (k === '売り' && (l['ボーナス'] === true || l['ボーナス'] === 'True')) return { t: '売り・恩株化', c: 'sell' };
+    if (k === '売り' || k === '売却') return { t: '売り', c: 'sell' };
+    if (k === '新規売り') return { t: '新規売り', c: 'short' };
+    if (k === '買い戻し') return { t: '買い戻し', c: 'cover' };
+    return { t: '買い', c: 'buy' };
+  }
+
+  function render() {
+    var data = state.data, logs = cleanLogs(data.logs || []);
+    var res = JPG.recalculateAll(logs), R = JPG.computeReward(res), names = nameMap(logs, res);
+    var nm = function (c, fb) { return names[c] || String(fb || c); };
+    var pls = res.logs.filter(function (l) { return NOT_PL.indexOf(l['区分']) < 0; });
+    var year = pls.reduce(function (s, l) { return s + Number(l['確定損益'] || 0); }, 0);
+
+    $('asof').textContent = '株の収支' + (data.updatedAt ? '・' + data.updatedAt.replace(/^\d{4}-(\d{2})-(\d{2})/, function (_, a, b) { return Number(a) + '月' + Number(b) + '日'; }) + ' 時点' : '');
+    $('role').textContent = state.role === 'owner' ? '記録できる' : '見るだけ';
+    $('role').className = 'role' + (state.role === 'owner' ? '' : ' wife');
+
+    // まとめ
+    var y = $('yearPl'); y.innerHTML = esc(sgn(Math.round(year), true)) + '<span class="cur">¥</span>' + esc(comma(year)); y.className = 'big ' + cls(year);
+    money($('rwEarned'), R.earned); money($('rwPaid'), R.paidBase * JPG.RATE); money($('rwUnpaid'), R.unpaid); money($('rwDebt'), R.balance);
+    var bonus = res.logs.filter(function (l) { return l['区分'] === '恩株精算'; });
+    // 恩株ボーナス＝買い取りの値段×株数の15%（7/9 の3件＝73,500＋95,490＋57,285＝226,275 と同じ数え方）
+    var bAmt = bonus.reduce(function (s, l) { return s + Math.trunc(Number(l['数量']) * Number(l['約定単価']) * JPG.RATE); }, 0);
+    $('bonusCard').classList.toggle('hidden', !bonus.length);
+    if (bonus.length) {
+      var ds = bonus.map(function (l) { return md(l['日付']); }).filter(function (v, i, a) { return a.indexOf(v) === i; });
+      $('bonusWhat').textContent = bonus.length + '銘柄・' + ds.join('、');
+      $('bonusAmt').textContent = yen(bAmt);
+    }
+    var mon = {}, lastM = String((data.updatedAt || '').slice(0, 7)) || '2026-12';
+    pls.forEach(function (l) { var k = String(l['日付']).slice(0, 7); if (k >= '2026-01') mon[k] = (mon[k] || 0) + Number(l['確定損益'] || 0); });
+    Object.keys(mon).forEach(function (k) { if (k > lastM) lastM = k; });
+    var keys = []; for (var i = 1; i <= 12; i++) { var k = '2026-' + (i < 10 ? '0' : '') + i; if (k <= lastM) keys.push(k); }
+    var mx = Math.max.apply(null, keys.map(function (k) { return Math.abs(mon[k] || 0); }).concat([1]));
+    $('months').innerHTML = keys.map(function (k) {
+      var v = mon[k] || 0, w = v ? Math.max(2, Math.round(Math.abs(v) / mx * 50)) : 0;   // 真ん中から左右に最大50%
+      return '<div class="mrow"><span class="m">' + Number(k.slice(5)) + '月</span><div class="track"><div class="bar ' + cls(v) + '" style="width:' + w + '%"></div></div><span class="v ' + cls(v) + '">' + esc(yen(v, true)) + '</span></div>';
+    }).join('');
+
+    // 現在のポートフォリオ
+    var prices = data.prices || {}, settled = R.settledCodes || [], hs = [], cost = 0, unreal = 0, priced = 0;
+    res.portfolio.forEach(function (v, c) { if (v.qty > 0) hs.push({ c: c, v: v }); });
+    hs.sort(function (a, b) { return a.c < b.c ? -1 : 1; });
+    $('holds').innerHTML = hs.map(function (h) {
+      var v = h.v, p = Number(prices[h.c]), short = v.position_side === 'short', has = p > 0;
+      var u = has ? (short ? (v.avg_price - p) * v.qty : (p - v.avg_price) * v.qty) : 0;
+      cost += v.avg_price * v.qty; if (has) { unreal += u; priced++; }
+      return '<div class="card hold"><h3>' + esc(nm(h.c, v.name)) + '<span class="code">' + esc(h.c) + '</span></h3>' +
+        (settled.indexOf(h.c) >= 0 ? '<span class="badge">🏆 恩株・買い取り済み（報酬の計算に入れない）</span>' : '') +
+        (short ? '<span class="badge">🟠 新規売りの建玉</span>' : '') +
+        '<div class="kv"><div><span>株数</span><b>' + v.qty.toLocaleString('ja-JP') + '株</b></div>' +
+        '<div><span>平均の買値</span><b>' + price(v.avg_price) + '</b></div>' +
+        '<div><span>いまの株価</span><b>' + (has ? price(p) : '—') + '</b></div>' +
+        '<div><span>含み損益</span><b class="' + (has ? cls(u) : '') + '">' + (has ? esc(yen(u, true)) : '—') + '</b></div></div></div>';
+    }).join('') || '<div class="card empty">いま持っている株はありません</div>';
+    $('hCount').textContent = hs.length + '銘柄';
+    $('hCost').textContent = yen(cost);
+    if (priced) { money($('hUnreal'), unreal, true); } else { $('hUnreal').textContent = '—'; $('hUnreal').className = ''; }
+    $('hNote').textContent = priced ? '株価は少し遅れて入ります。' : '株価は、受け口ができたら毎日自動で入ります。';
+    renderStocks(res, nm);
+
+    // 履歴
+    var months = []; res.logs.forEach(function (l) { var k = String(l['日付']).slice(0, 7); if (months.indexOf(k) < 0) months.push(k); });
+    months.sort().reverse();
+    if (!state.month || (state.month !== 'all' && months.indexOf(state.month) < 0)) state.month = months[0] || 'all';
+    $('chips').innerHTML = ['all'].concat(months).map(function (k) {
+      var t = k === 'all' ? '全部' : (k < '2026-01' ? '繰越' : Number(k.slice(5)) + '月');
+      return '<button class="chip" data-m="' + k + '" aria-pressed="' + (state.month === k) + '">' + t + '</button>';
+    }).join('');
+    renderHist(res, nm);
+
+    // 記録（本人だけ）
+    var owner = state.role === 'owner';
+    $('tabsIn').style.setProperty('--n', owner ? 4 : 3);
+    document.querySelector('.tab[data-v="rec"]').classList.toggle('hidden', !owner);
+    var pend = (data.pending || []);
+    $('pend').innerHTML = pend.length ? pend.map(function (p) {
+      var k = kindOf(p);
+      return '<div class="card pend"><div class="what"><span class="k ' + k.c + '">' + esc(k.t) + '</span>' + esc(md(p['日付'])) + '</div><div>' + esc(nm(p['証券コード'], p['銘柄名'])) + '<span class="code">' + esc(p['証券コード']) + '</span></div>' +
+        '<div class="num">' + Number(p['数量']).toLocaleString('ja-JP') + '株 × ' + price(Number(p['約定単価'])) + '</div>' +
+        (p['見本'] ? '<p class="note">※見本の候補です</p>' : '') +
+        '<div class="btns"><button class="btn main" data-rec="' + esc(p.id) + '">記録する</button><button class="btn" data-skip="' + esc(p.id) + '">見送る</button></div></div>';
+    }).join('') : '<p class="empty">新しい候補はありません</p>';
+    $('payAmt').textContent = yen(R.unpaid);
+    $('payBtn').disabled = !(R.unpaidBase > 0); $('payBtn').dataset.base = Math.trunc(R.unpaidBase);
+    var zero = hs.filter(function (h) { return h.v.avg_price === 0 && h.v.position_side !== 'short'; });
+    $('settle').innerHTML = zero.length ? zero.map(function (h) { return '<div>' + esc(nm(h.c, h.v.name)) + '<span class="code">' + esc(h.c) + '</span> ' + h.v.qty + '株</div>'; }).join('') : '<p class="empty">いま買い取りを待っている恩株はありません</p>';
+  }
+
+  function renderHist(res, nm) {
+    var q = state.q.trim().toLowerCase(), m = state.month;
+    var rows = res.logs.filter(function (l) {
+      var d = String(l['日付']);
+      if (m !== 'all' && d.slice(0, 7) !== m) return false;
+      if (q && (String(l['証券コード']) + ' ' + nm(String(l['証券コード']), l['銘柄名'])).toLowerCase().indexOf(q) < 0) return false;
+      return true;
+    }).slice().reverse();
+    var html = '', last = '';
+    rows.forEach(function (l) {
+      var d = String(l['日付']);
+      if (d !== last) { html += '<div class="day">' + (d < '2026-01-01' ? '去年から持ち越した株' : md(d)) + '</div>'; last = d; }
+      html += txHtml(l, nm, false);
+    });
+    $('hist').innerHTML = html || '<p class="empty">当てはまる取引はありません</p>';
+  }
+
+  // 取引1行（byDate＝銘柄の中に並べる時は、名前の代わりに日付を出す）
+  function txHtml(l, nm, byDate) {
+    var d = String(l['日付']), k = kindOf(l), pl = Number(l['確定損益'] || 0), showPl = NOT_PL.indexOf(l['区分']) < 0 && pl !== 0;
+    var head = byDate ? (d < '2026-01-01' ? '去年から' : md(d)) : nm(String(l['証券コード']), l['銘柄名']);
+    var detail = l['区分'] === '報酬精算' ? yen(-pl) : (Number(l['数量']).toLocaleString('ja-JP') + '株 × ' + price(Number(l['約定単価'])));
+    return '<div class="tx"><div><span class="k ' + k.c + '">' + esc(k.t) + '</span><span class="nm">' + esc(head) + '</span></div>' +
+      '<div class="dt">' + esc(detail) + '</div>' + (showPl ? '<div class="pl ' + cls(pl) + '">' + esc(yen(pl, true)) + '</div>' : '') + '</div>';
+  }
+
+  // 今年売り買いした銘柄ごと（損益・回数・最後の日。押すと取引が開く）
+  function renderStocks(res, nm) {
+    var by = {}, held = {};
+    res.portfolio.forEach(function (v, c) { if (v.qty > 0) held[c] = true; });
+    res.logs.forEach(function (l) {
+      var c = String(l['証券コード']), k = l['区分'], d = String(l['日付']);
+      if (k === 'データ調整' || k === '報酬精算') return;
+      var s = by[c] || (by[c] = { c: c, pl: 0, n: 0, last: '', rows: [] });
+      s.rows.push(l);
+      if (NOT_PL.indexOf(k) < 0) s.pl += Number(l['確定損益'] || 0);
+      if (d >= '2026-01-01' && k !== '恩株精算') { s.n++; if (d > s.last) s.last = d; }
+    });
+    var list = Object.keys(by).map(function (c) { return by[c]; }).filter(function (s) { return s.n > 0; });
+    list.sort(state.sort === 'gain' ? function (a, b) { return b.pl - a.pl; } :
+      state.sort === 'loss' ? function (a, b) { return a.pl - b.pl; } :
+      function (a, b) { return a.last < b.last ? 1 : (a.last > b.last ? -1 : 0); });
+    $('stTitle').innerHTML = '📜 銘柄別アーカイブ <small>今年 ' + list.length + '銘柄</small>';
+    $('stocks').innerHTML = list.map(function (s) {
+      return '<details class="st" data-c="' + esc(s.c) + '"' + (state.open[s.c] ? ' open' : '') + '><summary>' +
+        '<span class="snm">' + esc(nm(s.c)) + '<span class="code">' + esc(s.c) + '</span>' + (held[s.c] ? '<span class="have">持っている</span>' : '') + '</span>' +
+        '<span class="ssub"><span class="nw">売り買い ' + s.n + '回</span>・<span class="nw">最後 ' + md(s.last) + '</span></span>' +
+        '<span class="spl ' + cls(s.pl) + '">' + esc(yen(s.pl, true)) + '</span></summary>' +
+        '<div class="body">' + s.rows.slice().reverse().map(function (l) { return txHtml(l, nm, true); }).join('') + '</div></details>';
+    }).join('') || '<p class="empty">今年の売り買いはまだありません</p>';
+    Array.prototype.forEach.call(document.querySelectorAll('#stSort .chip'), function (b) { b.setAttribute('aria-pressed', b.dataset.s === state.sort ? 'true' : 'false'); });
+  }
+  $('stSort').addEventListener('click', function (ev) { var b = ev.target.closest('.chip'); if (!b) return; state.sort = b.dataset.s; render(); });
+  $('stocks').addEventListener('toggle', function (ev) { var el = ev.target; if (el.classList && el.classList.contains('st')) state.open[el.dataset.c] = el.open; }, true);
+  $('chips').addEventListener('click', function (ev) {
+    var b = ev.target.closest('.chip'); if (!b) return;
+    state.month = b.dataset.m; render();
+  });
+  $('q').addEventListener('input', function () { state.q = this.value; render(); });
+
+  // ---- 記録の操作（本人だけ） ----
+  function ftype() { var r = document.querySelector('input[name="ftype"]:checked'); return r ? r.value : '買い'; }
+  $('fType').addEventListener('change', function () { $('fBonusWrap').classList.toggle('hidden', ftype() !== '売り'); });
+  $('txForm').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var t = ftype();
+    var tx = { type: t, date: $('fDate').value, code: $('fCode').value.trim().toUpperCase(), qty: Number($('fQty').value), price: Number($('fPrice').value), bonus: $('fBonus').checked && t === '売り' };
+    call('add', { tx: tx }).then(after);
+  });
+  $('payBtn').addEventListener('click', function () {
+    var b = this;
+    if (!b.classList.contains('armed')) { b.classList.add('armed'); b.textContent = 'もう一度押すと記録します'; setTimeout(function () { b.classList.remove('armed'); b.textContent = '支払い完了にする'; }, 5000); return; }
+    b.classList.remove('armed'); b.textContent = '支払い完了にする';
+    call('pay', { expectBase: Number(b.dataset.base) }).then(after);
+  });
+  $('pend').addEventListener('click', function (ev) {
+    var r = ev.target.closest('[data-rec]'), s = ev.target.closest('[data-skip]');
+    var id = (r || s) && (r || s).getAttribute(r ? 'data-rec' : 'data-skip'); if (!id) return;
+    var p = (state.data.pending || []).filter(function (x) { return String(x.id) === id; })[0]; if (!p) return;
+    if (r) call('add', { tx: { type: p['区分'], date: p['日付'], code: p['証券コード'], name: p['銘柄名'], qty: p['数量'], price: p['約定単価'], bonus: false, pendingId: id } }).then(after);
+    else call('dismissPending', { id: id }).then(after);
+  });
+  function after(j) {
+    if (!j || j.demo) return;
+    if (j.ok) { toast(j.msg || '記録しました'); load(); } else if (j.error && j.error !== 'not_allowed') toast(j.error);
+  }
+
+  // ---- 読み込み ----
+  function show(data, role) {
+    state.data = data; state.role = role;
+    $('lock').classList.add('hidden'); $('app').classList.remove('hidden'); $('tabs').classList.remove('hidden');
+    var v = 'sum'; try { v = sessionStorage.getItem('jpg.view') || 'sum'; } catch (e) { }
+    if (DEMO && VIEWS.indexOf(qs.get('view')) >= 0) v = qs.get('view');
+    if (v === 'rec' && role !== 'owner') v = 'sum';
+    render(); setView(v);
+  }
+  function load() {
+    if (DEMO) {
+      $('demoNote').classList.remove('hidden');
+      if (DEMO_ROLE === 'lock') { showLock(); return; }
+      fetch('demo.json').then(function (r) { return r.json(); }).then(function (d) { show(d, DEMO_ROLE === 'wife' ? 'wife' : 'owner'); });
+      return;
+    }
+    call('load').then(function (j) {
+      if (j && j.ok) show(j, j.role === 'admin' ? 'owner' : 'wife');
+      else if (j && j.error !== 'not_allowed') toast('読み込めませんでした。少し待って開き直してください');
+    }).catch(function () { toast('つながりませんでした。電波を確かめてください'); });
+  }
+  function start() { if (!DEMO && !readConfig()) { showLock(); return; } load(); }
+  $('fDate').value = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+  start();
+})();
+</script>
+</body>
+</html>
