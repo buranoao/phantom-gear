@@ -94,6 +94,14 @@ button,input,select{font:inherit; color:inherit}
 .kv div{background:#0e1422; border:1px solid #1d273c; border-radius:12px; padding:8px 12px}
 .kv span{display:block; font-size:13px; color:var(--sub)}
 .kv b{font-family:var(--num); font-size:21px}
+/* 恩株（買い取り済み）の箱＝ふだんは閉じている・タップで開く */
+.bonusbox > summary{list-style:none; cursor:pointer; display:grid; grid-template-columns:minmax(0,1fr) auto; gap:4px 12px; align-items:center; min-height:52px}
+.bonusbox > summary::-webkit-details-marker{display:none}
+.bonusbox .bnm{font-weight:700; font-size:18px; color:var(--gold)}
+.bonusbox .bct{font-family:var(--num); font-weight:700; font-size:16px; color:var(--sub); white-space:nowrap}
+.bonusbox .bct::after{content:"▾"; color:var(--mute); font-size:14px; margin-left:6px}
+.bonusbox[open] .bct::after{content:"▴"}
+.bonusbox .bsub{grid-column:1 / span 2; color:var(--sub); font-size:13px}
 
 .st{border-top:1px solid var(--line)}
 .st:first-child{border-top:0}
@@ -513,25 +521,33 @@ body.noscroll{overflow:hidden}
     }).join('');
 
     // 現在のポートフォリオ
-    var prices = data.prices || {}, settled = R.settledCodes || [], hs = [], cost = 0, unreal = 0, priced = 0;
-    res.portfolio.forEach(function (v, c) { if (v.qty > 0) hs.push({ c: c, v: v }); });
-    hs.sort(function (a, b) { return a.c < b.c ? -1 : 1; });
-    $('holds').innerHTML = hs.map(function (h) {
+    // ★恩株（買い取り済み）は閉じた箱1つにしまう＝タップした時だけ開く・上の合計にも入れない（2026-11-14 本人「買い取ってくれた恩株って邪魔」）
+    var prices = data.prices || {}, settled = R.settledCodes || [], hs = [], bs = [], cost = 0, unreal = 0, priced = 0;
+    res.portfolio.forEach(function (v, c) { if (v.qty > 0) (settled.indexOf(c) >= 0 ? bs : hs).push({ c: c, v: v }); });
+    var byCode = function (a, b) { return a.c < b.c ? -1 : 1; };
+    hs.sort(byCode); bs.sort(byCode);
+    var holdCard = function (h, inBox) {
       var v = h.v, p = Number(prices[h.c]), short = v.position_side === 'short', has = p > 0;
       var u = has ? (short ? (v.avg_price - p) * v.qty : (p - v.avg_price) * v.qty) : 0;
-      cost += v.avg_price * v.qty; if (has) { unreal += u; priced++; }
+      if (!inBox) { cost += v.avg_price * v.qty; if (has) { unreal += u; priced++; } }
       return '<div class="card hold"><h3>' + esc(nm(h.c, v.name)) + '<span class="code">' + esc(h.c) + '</span></h3>' +
-        (settled.indexOf(h.c) >= 0 ? '<span class="badge">🏆 恩株・買い取り済み（報酬の計算に入れない）</span>' : '') +
         (short ? '<span class="badge">🟠 新規売りの建玉</span>' : '') +
         '<div class="kv"><div><span>株数</span><b>' + v.qty.toLocaleString('ja-JP') + '株</b></div>' +
         '<div><span>平均の買値</span><b>' + price(v.avg_price) + '</b></div>' +
         '<div><span>いまの株価</span><b>' + (has ? price(p) : '—') + '</b></div>' +
         '<div><span>含み損益</span><b class="' + (has ? cls(u) : '') + '">' + (has ? esc(yen(u, true)) : '—') + '</b></div></div></div>';
-    }).join('') || '<div class="card empty">いま持っている株はありません</div>';
+    };
+    var html = hs.map(function (h) { return holdCard(h, false); }).join('');
+    if (!hs.length && !bs.length) html = '<div class="card empty">いま持っている株はありません</div>';
+    if (bs.length) html += '<details class="bonusbox"><summary class="card"><span class="bnm">🏆 恩株・買い取り済み</span><span class="bct">' + bs.length + '銘柄</span>' +
+      '<span class="bsub">報酬にも上の合計にも入れていません。<wbr>タップで開きます</span></summary>' +
+      bs.map(function (h) { return holdCard(h, true); }).join('') + '</details>';
+    $('holds').innerHTML = html;
     $('hCount').textContent = hs.length + '銘柄';
     $('hCost').textContent = yen(cost);
     if (priced) { money($('hUnreal'), unreal, true); } else { $('hUnreal').textContent = '—'; $('hUnreal').className = ''; }
-    $('hNote').textContent = priced ? '株価は少し遅れて入ります。' : '株価は、受け口ができたら毎日自動で入ります。';
+    $('hNote').textContent = (priced ? '株価は20分ほど遅れて入ります。' : hs.length ? '株価がいま取れていません。開き直すと入ります。' : '') +
+      (bs.length ? '恩株（買い取り済み）は下の箱にしまっています。' : '');
     renderStocks(res, nm);
 
     // 履歴
