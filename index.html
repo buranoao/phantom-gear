@@ -165,6 +165,32 @@ body.noscroll{overflow:hidden}
 .tx .dt{grid-column:1; color:var(--sub); font-size:15px; font-family:var(--num); font-weight:600}
 .tx .pl{grid-column:2; grid-row:1 / span 2; align-self:center; text-align:right; font-family:var(--num); font-weight:700; font-size:20px}
 .tx .lot{grid-column:1 / span 2; color:var(--gold); font-size:14px}   /* 恩株の銘柄の売り＝報酬に入れる分の一言 */
+/* 支払い済み＝開け閉め・中に払った日付と金額の一覧（増えたら中だけ上下に動く・2026-11-15） */
+.paybox{margin:10px 0 0}
+.paybox > summary{list-style:none; cursor:pointer; display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:8px; align-items:baseline; min-height:40px}
+.paybox > summary::-webkit-details-marker{display:none}
+.paybox > summary .pt{color:var(--sub)}
+.paybox > summary b{font-family:var(--num); font-weight:700; font-size:22px}
+.paybox > summary::after{content:"▾"; color:var(--mute); font-size:14px}
+.paybox[open] > summary::after{content:"▴"}
+.paylist{max-height:220px; overflow-y:auto; margin-top:6px; border:1px solid var(--line2); border-radius:12px; padding:2px 12px; background:#0e1422}
+.paylist .empty{margin:10px 0}
+.prow{display:flex; justify-content:space-between; gap:12px; padding:9px 0; border-top:1px solid var(--line); font-family:var(--num); font-weight:600}
+.prow:first-child{border-top:0}
+.prow b{font-weight:700}
+/* 恩株ボーナスの欄＝タブ2つ・過去の一覧（2026-11-15） */
+.sorts.b2{grid-template-columns:repeat(2,minmax(0,1fr)); margin:10px 0 8px}
+#bonusNote{white-space:pre-line}
+.brow{display:grid; grid-template-columns:minmax(0,1fr) auto; gap:4px 12px; padding:10px 0; border-top:1px solid var(--line)}
+.brow:first-child{border-top:0}
+.brow .dt{color:var(--sub); font-size:15px; font-family:var(--num); font-weight:600}
+.brow .br{text-align:right; display:grid; gap:2px; align-content:center}
+.brow .br b{font-family:var(--num); font-size:19px; color:var(--gold)}
+.brow .st{font-size:13px; color:var(--sub); white-space:nowrap}
+.brow .st.wait{color:var(--gold); font-weight:700}
+.btot{display:flex; justify-content:space-between; align-items:center; gap:12px; padding:10px 0 0; border-top:1px solid var(--line2); font-weight:700}
+.btot b{font-family:var(--num); font-size:19px; color:var(--gold)}
+.subhd{margin:18px 0 4px; font-weight:700; color:var(--gold)}
 .strow{display:grid; gap:8px; padding:10px 0; border-top:1px solid var(--line)}
 .strow:first-child{border-top:0; padding-top:0}
 .empty{color:var(--sub); text-align:center; padding:18px 0}
@@ -260,25 +286,35 @@ body.noscroll{overflow:hidden}
     <div class="card hero">
       <div class="label">2026年の確定損益</div>
       <div class="big" id="yearPl"></div>
-      <div class="note kp">1月1日から<wbr>今日まで。<wbr>去年から<wbr>持ち越した株の<wbr>売り買いも<wbr>含みます。</div>
     </div>
     <div class="card">
       <h2>💰 成功報酬管理 <small>15%</small></h2>
       <dl class="rows">
         <dt>報酬の合計</dt><dd id="rwEarned"></dd>
-        <dt>支払い済み</dt><dd id="rwPaid"></dd>
       </dl>
+      <!-- 支払い済み＝これまでに払った分の合計。開くと、払ってリセットした日付と金額の一覧（2026-11-15 本人） -->
+      <details class="paybox" id="paidBox">
+        <summary><span class="pt">支払い済み</span><b id="rwPaid"></b></summary>
+        <div class="paylist" id="paidList"></div>
+      </details>
       <hr class="line">
       <dl class="rows">
-        <dt class="hl">未払い</dt><dd class="total" id="rwUnpaid"></dd>
-        <dt>今の残債</dt><dd id="rwDebt"></dd>
+        <dt class="hl">成功報酬合計金額</dt><dd class="total" id="rwUnpaid"></dd>
+        <dt>▲ 合計</dt><dd class="minus" id="rwDebt"></dd>
       </dl>
-      <p class="note">利益が出た日に、<wbr>その分の15%。<wbr>損は残債として積み、<wbr>次の利益で取り返した後の分から数えます。</p>
+      <p class="note">利益が出た日に、<wbr>その分の15%。<wbr>損は▲として積み、<wbr>次の利益で取り返した後の分から数えます。</p>
     </div>
     <div class="card bonus" id="bonusCard">
-      <h2>🏆 恩株ボーナス <small>15%・受け取り済み</small></h2>
-      <dl class="rows"><dt id="bonusWhat"></dt><dd class="total" id="bonusAmt"></dd></dl>
-      <p class="note">恩株は買い取り済みです。<wbr>報酬の計算には入れません。</p>
+      <h2>🏆 恩株ボーナス <small>15%</small></h2>
+      <div class="sorts b2" id="bTabs" role="group" aria-label="恩株ボーナスの見方">
+        <button class="chip" type="button" data-bt="now" aria-pressed="true">受け取り待ち</button>
+        <button class="chip" type="button" data-bt="list" aria-pressed="false">過去の一覧</button>
+      </div>
+      <div id="bNow">
+        <dl class="rows"><dt class="hl">受け取り待ち</dt><dd class="total" id="bonusAmt"></dd></dl>
+        <p class="note" id="bonusNote"></p>
+      </div>
+      <div id="bList" class="hidden"></div>
     </div>
     <div class="card">
       <h2>📈 月ごとの確定損益</h2>
@@ -351,13 +387,15 @@ body.noscroll{overflow:hidden}
     </div>
     <div class="card">
       <h2>💰 報酬の支払い</h2>
-      <dl class="rows"><dt class="hl">未払い</dt><dd class="total" id="payAmt"></dd></dl>
+      <dl class="rows"><dt class="hl">成功報酬合計金額</dt><dd class="total" id="payAmt"></dd></dl>
       <button class="btn wide" id="payBtn" type="button" style="margin-top:14px">支払い完了にする</button>
-      <p class="note">押すと「払った」と記録します。<wbr>残債は変わりません。</p>
+      <p class="note">押すと「払った」と記録します。<wbr>▲ 合計は変わりません。</p>
     </div>
     <div class="card">
       <h2>🏆 恩株の買い取り</h2>
       <div id="settle"></div>
+      <p class="subhd">恩株ボーナスの受け取り</p>
+      <div id="bonusWait"></div>
     </div>
   </section>
 </div>
@@ -506,17 +544,34 @@ body.noscroll{overflow:hidden}
 
     // まとめ
     var y = $('yearPl'); y.innerHTML = esc(sgn(Math.round(year), true)) + '<span class="cur">¥</span>' + esc(comma(year)); y.className = 'big ' + cls(year);
-    money($('rwEarned'), R.earned); money($('rwPaid'), R.paidBase * JPG.RATE); money($('rwUnpaid'), R.unpaid); money($('rwDebt'), R.balance);
-    var bonus = res.logs.filter(function (l) { return l['区分'] === '恩株精算'; });
+    money($('rwEarned'), R.earned); money($('rwPaid'), R.paidBase * JPG.RATE); money($('rwUnpaid'), R.unpaid);
+    // ▲ 合計＝損を積んだ分（前の「今の残債」・2026-11-15 本人「債務みたいでいらつくので　▲ 合計　にして青字で」）
+    $('rwDebt').textContent = R.balance < 0 ? '▲¥' + comma(R.balance) : '¥0'; $('rwDebt').className = 'minus';
+    // 支払い済みの一覧＝払ってリセットした日付と金額（新しい順）
+    var paid = (R.payments || []).filter(function (p) { return !p.bonus; }).slice().reverse();
+    $('paidList').innerHTML = paid.length ? paid.map(function (p) {
+      return '<div class="prow"><span>' + esc(String(p.date).slice(0, 4) !== '2026' ? String(p.date).slice(0, 4) + '年' + md(p.date) : md(p.date)) + '</span><b>' + esc(yen(p.base * JPG.RATE)) + '</b></div>';
+    }).join('') : '<p class="empty">まだ支払いの記録はありません</p>';
     // 恩株ボーナス＝買い取りの値段×株数の15%（7/9 の3件＝73,500＋95,490＋57,285＝226,275 と同じ数え方）
-    var bAmt = bonus.reduce(function (s, l) { return s + bonusYen(Number(l['数量']), Number(l['約定単価'])); }, 0);
+    // ★受け取り待ちの分だけ金額を出す・受け取り済みは0円（買い取りの行の印＝受け取り済み・2026-11-15 本人）／過去の分は「過去の一覧」のタブ
+    var bonus = res.logs.filter(function (l) { return l['区分'] === '恩株精算'; });
+    var bwait = bonus.filter(function (l) { return !truthy(l['ボーナス']); });
+    var bAmt = bwait.reduce(function (s, l) { return s + bonusYen(Number(l['数量']), Number(l['約定単価'])); }, 0);
+    var bAll = bonus.reduce(function (s, l) { return s + bonusYen(Number(l['数量']), Number(l['約定単価'])); }, 0);
     $('bonusCard').classList.toggle('hidden', !bonus.length);
     if (bonus.length) {
-      var ds = bonus.map(function (l) { return md(l['日付']); }).filter(function (v, i, a) { return a.indexOf(v) === i; });
-      var bcs = bonus.map(function (l) { return String(l['証券コード']); }).filter(function (v, i, a) { return a.indexOf(v) === i; });   // 同じ銘柄を2回買い取っても1銘柄
-      $('bonusWhat').textContent = bcs.length + '銘柄・' + ds.join('、');
       $('bonusAmt').textContent = yen(bAmt);
+      $('bonusNote').textContent = bwait.length ? bwait.length + '件・買い取りの値段×株数の15%です。' + (state.role === 'owner' ? '\n受け取ったら、記録のタブで「受け取り済みにする」を押すと0円になります。' : '')
+        : 'いま受け取り待ちの恩株ボーナスはありません。';
+      $('bList').innerHTML = bonus.slice().reverse().map(function (l) {
+        var done = truthy(l['ボーナス']), c = String(l['証券コード']);
+        return '<div class="brow"><div><b>' + esc(nm(c, l['銘柄名'])) + '</b><span class="code">' + esc(c) + '</span>' +
+          '<div class="dt">' + esc(md(l['日付'])) + '・' + Number(l['数量']).toLocaleString('ja-JP') + '株 × ' + esc(price(Number(l['約定単価']))) + '</div></div>' +
+          '<div class="br"><b>' + esc(yen(bonusYen(Number(l['数量']), Number(l['約定単価'])))) + '</b><span class="st' + (done ? '' : ' wait') + '">' + (done ? '受け取り済み' : '受け取り待ち') + '</span></div></div>';
+      }).join('') + '<div class="btot"><span>これまでの合計（' + bonus.length + '件）</span><b>' + esc(yen(bAll)) + '</b></div>' +
+        '<p class="note">恩株は報酬の計算には入れません。</p>';
     }
+    showBt();
     var mon = {}, lastM = String((data.updatedAt || '').slice(0, 7)) || '2026-12';
     pls.forEach(function (l) { var k = String(l['日付']).slice(0, 7); if (k >= '2026-01') mon[k] = (mon[k] || 0) + Number(l['確定損益'] || 0); });
     Object.keys(mon).forEach(function (k) { if (k > lastM) lastM = k; });
@@ -603,6 +658,12 @@ body.noscroll{overflow:hidden}
       return '<div class="strow"><div>' + esc(nm(h.c, h.v.name)) + '<span class="code">' + esc(h.c) + '</span> 買値0の株 ' + h.v.qty.toLocaleString('ja-JP') + '株' + (h.extra ? '（別口）' : '') + '</div>' +
         '<button class="btn wide" type="button" data-settle="' + esc(h.c) + '">買い取りを記録する</button></div>';
     }).join('') : '<p class="empty">いま買い取りを待っている恩株はありません</p>';
+    // 受け取り待ちの恩株ボーナス＝1件ずつ「受け取り済みにする」（確認の画面で確定）
+    $('bonusWait').innerHTML = bwait.length ? bwait.map(function (l) {
+      var c = String(l['証券コード']);
+      return '<div class="strow"><div>' + esc(nm(c, l['銘柄名'])) + '<span class="code">' + esc(c) + '</span> ' + esc(md(l['日付'])) + '・' + esc(yen(bonusYen(Number(l['数量']), Number(l['約定単価'])))) + '</div>' +
+        '<button class="btn wide" type="button" data-bdone="' + l.__r + '">受け取り済みにする</button></div>';
+    }).join('') : '<p class="empty">受け取り待ちの恩株ボーナスはありません</p>';
   }
 
   function renderHist(res, nm) {
@@ -850,7 +911,7 @@ body.noscroll{overflow:hidden}
     var base = Number(this.dataset.base);
     openSheet({
       title: '成功報酬を払ったと記録しますか？',
-      body: '<div class="sum"><div class="r2">払った報酬</div><div class="r3">' + esc($('payAmt').textContent) + '</div><div class="r4">記録すると、未払いが ¥0 になります。残債は変わりません。</div></div>',
+      body: '<div class="sum"><div class="r2">払った報酬</div><div class="r3">' + esc($('payAmt').textContent) + '</div><div class="r4">記録すると、成功報酬合計金額が ¥0 になります。▲ 合計は変わりません。</div></div>',
       noCancel: true, buttons: [{ text: '戻る', fn: closeSheet },
         { text: '払った（確定）', cls: 'main', fn: function (b) {
           busy(b, '送っています…');
@@ -858,6 +919,35 @@ body.noscroll{overflow:hidden}
             closeSheet();
             if (!j || !j.ok) { fail(j); return; }
             toast(j.msg || '記録しました'); load();
+          }).catch(function () { closeSheet(); fail(null); });
+        } }]
+    });
+  });
+  // 恩株ボーナスの欄のタブ（受け取り待ち／過去の一覧）
+  function showBt() {
+    var t = state.bt === 'list' ? 'list' : 'now';
+    Array.prototype.forEach.call(document.querySelectorAll('#bTabs .chip'), function (b) { b.setAttribute('aria-pressed', b.dataset.bt === t ? 'true' : 'false'); });
+    $('bNow').classList.toggle('hidden', t !== 'now'); $('bList').classList.toggle('hidden', t !== 'list');
+  }
+  $('bTabs').addEventListener('click', function (ev) { var b = ev.target.closest('.chip'); if (!b) return; state.bt = b.dataset.bt; showBt(); });
+  // 恩株ボーナスを受け取り済みにする＝確認の画面で「確定」を押した時だけ・あとで「元に戻す」で受け取り待ちに戻せる
+  $('bonusWait').addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-bdone]'); if (!b) return;
+    var r = state.rows[Number(b.dataset.bdone)]; if (!r || r.l['区分'] !== '恩株精算') return;
+    var l = r.l, c = String(l['証券コード']), amt = bonusYen(Number(l['数量']), Number(l['約定単価']));
+    openSheet({
+      title: '恩株ボーナスを受け取り済みにしますか？',
+      body: '<div class="sum"><div class="r1"><span class="k gold">恩株の買い取り</span><span>' + esc(md(l['日付'])) + '</span></div>' +
+        '<div class="r2">' + esc(state.nm(c, l['銘柄名'])) + '<span class="code">' + esc(c) + '</span></div>' +
+        '<div class="r3">' + esc(yen(amt)) + '</div><div class="r4">' + Number(l['数量']).toLocaleString('ja-JP') + '株 × ' + esc(price(Number(l['約定単価']))) + ' の15%。<br>記録すると、受け取り待ちからこの分が消えます。</div></div>',
+      noCancel: true, buttons: [{ text: '戻る', fn: closeSheet },
+        { text: '受け取った（確定）', cls: 'main', fn: function (btn) {
+          busy(btn, '送っています…');
+          call('bonusDone', { sig: r.sig, nth: r.nth, count: (state.sigCount || {})[r.sig] }).then(function (j) {
+            closeSheet();
+            if (!j || !j.ok) { fail(j); return; }
+            load();
+            toastAct('受け取り済みにしました', '元に戻す', function () { call('bonusDone', { sig: j.sig, nth: -1, undo: true }).then(plain); });
           }).catch(function () { closeSheet(); fail(null); });
         } }]
     });
