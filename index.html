@@ -164,6 +164,9 @@ body.noscroll{overflow:hidden}
 .tx .nm{font-weight:700}
 .tx .dt{grid-column:1; color:var(--sub); font-size:15px; font-family:var(--num); font-weight:600}
 .tx .pl{grid-column:2; grid-row:1 / span 2; align-self:center; text-align:right; font-family:var(--num); font-weight:700; font-size:20px}
+.tx .lot{grid-column:1 / span 2; color:var(--gold); font-size:14px}   /* 恩株の銘柄の売り＝報酬に入れる分の一言 */
+.strow{display:grid; gap:8px; padding:10px 0; border-top:1px solid var(--line)}
+.strow:first-child{border-top:0; padding-top:0}
 .empty{color:var(--sub); text-align:center; padding:18px 0}
 
 /* 記録 */
@@ -398,6 +401,8 @@ body.noscroll{overflow:hidden}
   function yen(n, sign) { n = Math.round(n || 0); return sgn(n, sign) + '¥' + comma(n); }
   function money(el, n, sign) { el.textContent = yen(n, sign); el.className = (el.className.replace(/\b(plus|minus|zero)\b/g, '').trim() + ' ' + cls(sign ? n : (n < 0 ? n : 0))).trim(); }
   function price(p) { return '¥' + (Math.round(p * 100) / 100).toLocaleString('ja-JP', { maximumFractionDigits: 2 }); }
+  // 恩株ボーナス＝株数×買い取りの値段×15%（小数の計算のずれで1円欠けないよう、丸めてから切り捨てる）
+  function bonusYen(q, p) { return Math.trunc(Math.round(q * p * JPG.RATE * 1e6) / 1e6); }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function md(d) { var p = String(d).split('-'); return Number(p[1]) + '月' + Number(p[2]) + '日'; }
   function toast(t) { var e = document.createElement('div'); e.className = 'toast'; e.textContent = t; document.body.appendChild(e); setTimeout(function () { e.remove(); }, 2600); }
@@ -487,7 +492,7 @@ body.noscroll{overflow:hidden}
     var data = state.data, logs = cleanLogs(data.logs || []);
     var res = JPG.recalculateAll(logs), R = JPG.computeReward(res), names = nameMap(logs, res);
     var nm = function (c, fb) { return names[c] || String(fb || c); };
-    state.names = names; state.nm = nm;
+    state.names = names; state.nm = nm; state.R = R;
     // 行ごとの名札と「同じ名札の何番目か」（直す・消すで、受け口に どの行か を伝える）
     var seenSig = {};
     state.rows = res.logs.map(function (l, i) { var s = sigOf(l); var n = seenSig[s] || 0; seenSig[s] = n + 1; l.__r = i; return { l: l, sig: s, nth: n }; });
@@ -504,11 +509,12 @@ body.noscroll{overflow:hidden}
     money($('rwEarned'), R.earned); money($('rwPaid'), R.paidBase * JPG.RATE); money($('rwUnpaid'), R.unpaid); money($('rwDebt'), R.balance);
     var bonus = res.logs.filter(function (l) { return l['区分'] === '恩株精算'; });
     // 恩株ボーナス＝買い取りの値段×株数の15%（7/9 の3件＝73,500＋95,490＋57,285＝226,275 と同じ数え方）
-    var bAmt = bonus.reduce(function (s, l) { return s + Math.trunc(Number(l['数量']) * Number(l['約定単価']) * JPG.RATE); }, 0);
+    var bAmt = bonus.reduce(function (s, l) { return s + bonusYen(Number(l['数量']), Number(l['約定単価'])); }, 0);
     $('bonusCard').classList.toggle('hidden', !bonus.length);
     if (bonus.length) {
       var ds = bonus.map(function (l) { return md(l['日付']); }).filter(function (v, i, a) { return a.indexOf(v) === i; });
-      $('bonusWhat').textContent = bonus.length + '銘柄・' + ds.join('、');
+      var bcs = bonus.map(function (l) { return String(l['証券コード']); }).filter(function (v, i, a) { return a.indexOf(v) === i; });   // 同じ銘柄を2回買い取っても1銘柄
+      $('bonusWhat').textContent = bcs.length + '銘柄・' + ds.join('、');
       $('bonusAmt').textContent = yen(bAmt);
     }
     var mon = {}, lastM = String((data.updatedAt || '').slice(0, 7)) || '2026-12';
@@ -523,8 +529,15 @@ body.noscroll{overflow:hidden}
 
     // 現在のポートフォリオ
     // ★恩株（買い取り済み）は閉じた箱1つにしまう＝タップした時だけ開く・上の合計にも入れない（2026-11-14 本人「買い取ってくれた恩株って邪魔」）
-    var prices = data.prices || {}, settled = R.settledCodes || [], hs = [], bs = [], cost = 0, unreal = 0, priced = 0;
-    res.portfolio.forEach(function (v, c) { if (v.qty > 0) (settled.indexOf(c) >= 0 ? bs : hs).push({ c: c, v: v }); });
+    // ★恩株が確定した後に買い足した株は「別口」＝自分の買値で現在のポートフォリオに出す・合計にも入れる（2026-11-15 本人「別口で管理したい」）
+    var prices = data.prices || {}, lots = R.lots || {}, hs = [], bs = [], cost = 0, unreal = 0, priced = 0;
+    res.portfolio.forEach(function (v, c) {
+      if (!(v.qty > 0)) return;
+      var lt = lots[c];
+      if (!lt) { hs.push({ c: c, v: v }); return; }
+      if (lt.bonusQty > 0) bs.push({ c: c, v: { name: v.name, qty: lt.bonusQty, avg_price: lt.bonusAvg, position_side: 'long' } });
+      if (lt.extraQty > 0) hs.push({ c: c, v: { name: v.name, qty: lt.extraQty, avg_price: lt.extraAvg, position_side: 'long' }, extra: lt.bonusQty > 0, free: lt.freeQty });
+    });
     var byCode = function (a, b) { return a.c < b.c ? -1 : 1; };
     hs.sort(byCode); bs.sort(byCode);
     var holdCard = function (h, inBox) {
@@ -533,6 +546,7 @@ body.noscroll{overflow:hidden}
       if (!inBox) { cost += v.avg_price * v.qty; if (has) { unreal += u; priced++; } }
       return '<div class="card hold"><h3>' + esc(nm(h.c, v.name)) + '<span class="code">' + esc(h.c) + '</span></h3>' +
         (short ? '<span class="badge">🟠 新規売りの建玉</span>' : '') +
+        (h.extra ? '<span class="badge">➕ 別口＝恩株とは別に数える分</span>' : '') +
         '<div class="kv"><div><span>株数</span><b>' + v.qty.toLocaleString('ja-JP') + '株</b></div>' +
         '<div><span>' + (short ? '平均の売値' : '平均の買値') + '</span><b>' + price(v.avg_price) + '</b></div>' +   // 新規売りの建玉は売った値段（11/14 本人「1」）
         '<div><span>いまの株価</span><b>' + (has ? price(p) : '—') + '</b></div>' +
@@ -579,8 +593,16 @@ body.noscroll{overflow:hidden}
     }).join('') : '<p class="empty">新しい候補はありません</p>';
     $('payAmt').textContent = yen(R.unpaid);
     $('payBtn').disabled = !(R.unpaidBase > 0); $('payBtn').dataset.base = Math.trunc(R.unpaidBase);
-    var zero = hs.filter(function (h) { return h.v.avg_price === 0 && h.v.position_side !== 'short'; });
-    $('settle').innerHTML = zero.length ? zero.map(function (h) { return '<div>' + esc(nm(h.c, h.v.name)) + '<span class="code">' + esc(h.c) + '</span> ' + h.v.qty + '株</div>'; }).join('') : '<p class="empty">いま買い取りを待っている恩株はありません</p>';
+    // 買い取りの候補＝買値0の株（買い足した株と混ざっていても、買値0の株の数だけ・2回目からは買い取ると恩株に合算）
+    var zero = hs.map(function (h) {
+      var q = h.free !== undefined ? h.free : (h.v.avg_price === 0 && h.v.position_side !== 'short' ? h.v.qty : 0);
+      return q > 0 ? { c: h.c, v: { name: h.v.name, qty: q }, extra: h.extra } : null;
+    }).filter(Boolean);
+    state.zero = zero;
+    $('settle').innerHTML = zero.length ? zero.map(function (h) {
+      return '<div class="strow"><div>' + esc(nm(h.c, h.v.name)) + '<span class="code">' + esc(h.c) + '</span> 買値0の株 ' + h.v.qty.toLocaleString('ja-JP') + '株' + (h.extra ? '（別口）' : '') + '</div>' +
+        '<button class="btn wide" type="button" data-settle="' + esc(h.c) + '">買い取りを記録する</button></div>';
+    }).join('') : '<p class="empty">いま買い取りを待っている恩株はありません</p>';
   }
 
   function renderHist(res, nm) {
@@ -606,8 +628,17 @@ body.noscroll{overflow:hidden}
     var head = byDate ? (d < '2026-01-01' ? '去年から' : md(d)) : nm(String(l['証券コード']), l['銘柄名']);
     var detail = l['区分'] === '報酬精算' ? yen(-pl) : (Number(l['数量']).toLocaleString('ja-JP') + '株 × ' + price(Number(l['約定単価'])));
     var more = state.role === 'owner' && l.__r !== undefined ? '<button class="more" type="button" data-r="' + l.__r + '" aria-label="この取引を直す・消す">︙</button>' : '';
+    // 恩株の銘柄の売り＝報酬に入れる分（別口の買値で数えた利益）を一言で（上の損益は証券会社と同じ混ぜた平均のまま）
+    var sh = state.R && state.R.lotRows && l.__r !== undefined ? state.R.lotRows[l.__r] : null, lot = '';
+    if (sh && JPG.BUY.indexOf(l['区分']) >= 0) lot = '別口として、この買値で別に数える';
+    else if (sh && !sh.plain && (sh.fromExtra || sh.fromBonus)) {
+      lot = !sh.fromExtra ? '恩株の分＝報酬に入れない' :
+        !sh.fromBonus ? '報酬に入れる分（別口の買値で）' + yen(sh.count, true) :
+        '報酬に入れる分（別口の' + sh.fromExtra.toLocaleString('ja-JP') + '株）' + yen(sh.count, true) + '・恩株の' + sh.fromBonus.toLocaleString('ja-JP') + '株は入れない';
+    }
     return '<div class="tx"><div><span class="k ' + k.c + '">' + esc(k.t) + '</span><span class="nm">' + esc(head) + '</span></div>' +
-      '<div class="dt">' + esc(detail) + '</div>' + (showPl ? '<div class="pl ' + cls(pl) + '">' + esc(yen(pl, true)) + '</div>' : '') + more + '</div>';
+      '<div class="dt">' + esc(detail) + '</div>' + (showPl ? '<div class="pl ' + cls(pl) + '">' + esc(yen(pl, true)) + '</div>' : '') + more +
+      (lot ? '<div class="lot">' + esc(lot) + '</div>' : '') + '</div>';
   }
 
   // 今年売り買いした銘柄ごと（損益・回数・最後の日。押すと取引が開く）
@@ -830,6 +861,36 @@ body.noscroll{overflow:hidden}
           }).catch(function () { closeSheet(); fail(null); });
         } }]
     });
+  });
+  // 恩株の買い取り＝確認の画面で株数と値段を確かめ、「確定」を押した時だけ記録する（別口なら恩株に合算・2026-11-15）
+  $('settle').addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-settle]'); if (!b) return;
+    var c = b.dataset.settle, h = (state.zero || []).filter(function (x) { return x.c === c; })[0]; if (!h) return;
+    var nmx = state.nm(c, h.v.name), p0 = Number((state.data.prices || {})[c]) || 0, max = h.v.qty;
+    openSheet({
+      title: '恩株の買い取りを記録しますか？',
+      body: '<div class="sum"><div class="r2">' + esc(nmx) + '<span class="code">' + esc(c) + '</span></div>' +
+        '<div class="r4">' + (h.extra ? '恩株とは別に数えている別口の、買値0の株です。<br>記録すると恩株の箱に合算します。' : '買値0の株です。<br>記録すると恩株の箱にしまいます。') + '</div></div>' +
+        '<div class="form" style="margin-top:12px"><div class="two">' +
+        '<label>株数（' + max.toLocaleString('ja-JP') + '株まで）<input id="stQty" type="number" inputmode="numeric" min="1" step="1" value="' + max + '"></label>' +
+        '<label>買い取りの値段（¥）<input id="stPrice" type="number" inputmode="decimal" min="0" step="any" value="' + (p0 || '') + '"></label></div>' +
+        (p0 ? '<p class="note">値段の欄には、いまの株価を入れています。<br>買い取りの値段に直してください。</p>' : '') +
+        '<p class="note" id="stBonus"></p><p class="fmsg" id="stMsg" role="alert"></p></div>',
+      noCancel: true, buttons: [{ text: '戻る', fn: closeSheet },
+        { text: '記録する（確定）', cls: 'main', fn: function (btn) {
+          var q = Number($('stQty').value), pr = Number($('stPrice').value);
+          var err = !(q > 0 && Math.trunc(q) === q) ? '株数を入れてください' : q > max ? max.toLocaleString('ja-JP') + '株より多くは記録できません' : !(pr > 0) ? '買い取りの値段を入れてください' : '';
+          $('stMsg').textContent = err; if (err) return;
+          busy(btn, '送っています…');
+          call('settle', { code: c, name: nmx, qty: q, price: pr }).then(function (j) {
+            closeSheet();
+            if (!j || !j.ok) { fail(j); return; }
+            toast(j.msg || '記録しました'); load();
+          }).catch(function () { closeSheet(); fail(null); });
+        } }]
+    });
+    var show = function () { var q = Number($('stQty').value), pr = Number($('stPrice').value); $('stBonus').textContent = q > 0 && pr > 0 ? '恩株ボーナス（15%）：' + yen(bonusYen(q, pr)) : ''; };
+    $('stQty').addEventListener('input', show); $('stPrice').addEventListener('input', show); show();
   });
   $('pend').addEventListener('click', function (ev) {
     var r = ev.target.closest('[data-rec]'), s = ev.target.closest('[data-skip]');
