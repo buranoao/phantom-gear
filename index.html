@@ -102,6 +102,7 @@ button,input,select{font:inherit; color:inherit}
 .bonusbox .bct::after{content:"▾"; color:var(--mute); font-size:14px; margin-left:6px}
 .bonusbox[open] .bct::after{content:"▴"}
 .bonusbox .bsub{grid-column:1 / span 2; color:var(--sub); font-size:13px}
+#hNote{white-space:pre-line}
 
 .st{border-top:1px solid var(--line)}
 .st:first-child{border-top:0}
@@ -533,7 +534,7 @@ body.noscroll{overflow:hidden}
       return '<div class="card hold"><h3>' + esc(nm(h.c, v.name)) + '<span class="code">' + esc(h.c) + '</span></h3>' +
         (short ? '<span class="badge">🟠 新規売りの建玉</span>' : '') +
         '<div class="kv"><div><span>株数</span><b>' + v.qty.toLocaleString('ja-JP') + '株</b></div>' +
-        '<div><span>平均の買値</span><b>' + price(v.avg_price) + '</b></div>' +
+        '<div><span>' + (short ? '平均の売値' : '平均の買値') + '</span><b>' + price(v.avg_price) + '</b></div>' +   // 新規売りの建玉は売った値段（11/14 本人「1」）
         '<div><span>いまの株価</span><b>' + (has ? price(p) : '—') + '</b></div>' +
         '<div><span>含み損益</span><b class="' + (has ? cls(u) : '') + '">' + (has ? esc(yen(u, true)) : '—') + '</b></div></div></div>';
     };
@@ -546,8 +547,8 @@ body.noscroll{overflow:hidden}
     $('hCount').textContent = hs.length + '銘柄';
     $('hCost').textContent = yen(cost);
     if (priced) { money($('hUnreal'), unreal, true); } else { $('hUnreal').textContent = '—'; $('hUnreal').className = ''; }
-    $('hNote').textContent = (priced ? '株価は20分ほど遅れて入ります。' : hs.length ? '株価がいま取れていません。開き直すと入ります。' : '') +
-      (bs.length ? '恩株（買い取り済み）は下の箱にしまっています。' : '');
+    $('hNote').textContent = [priced ? '株価は20分ほど遅れて入ります。' : hs.length ? '株価がいま取れていません。開き直すと入ります。' : '',
+      bs.length ? '恩株は下の箱にしまっています。' : ''].filter(Boolean).join('\n');   // 1文ずつ別の行（つなげると「買い／取り済み」で折れた）
     renderStocks(res, nm);
 
     // 履歴
