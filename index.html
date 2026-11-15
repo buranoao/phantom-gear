@@ -57,14 +57,6 @@ button,input,select{font:inherit; color:inherit}
 .note{margin:8px 0 0; color:var(--sub); font-size:15px}
 .plus{color:var(--plus)} .minus{color:var(--minus)} .zero{color:var(--zero)}
 
-.hero{text-align:center; padding:22px 16px 18px; overflow:hidden}
-.hero::before{content:""; position:absolute; left:0; right:0; top:0; height:3px; background:linear-gradient(90deg,transparent,var(--accent),transparent)}
-.hero .label{font-size:15px; color:var(--sub); letter-spacing:.06em}
-.hero .big{font-family:var(--num); font-weight:700; font-size:56px; line-height:1.15; margin:6px 0 4px}
-.hero .big.plus{text-shadow:0 0 28px rgba(255,99,99,.45)}
-.hero .big.minus{text-shadow:0 0 28px rgba(88,166,255,.45)}
-.hero .big .cur{font-size:30px; margin:0 2px}
-
 .rows{display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px 12px; align-items:baseline; margin:0}
 .rows dt{color:var(--sub)} .rows dd{margin:0; text-align:right; font-family:var(--num); font-weight:700; font-size:22px}
 .rows .total{font-size:28px}
@@ -283,10 +275,6 @@ body.noscroll{overflow:hidden}
 
   <!-- まとめ -->
   <section id="v-sum">
-    <div class="card hero">
-      <div class="label">2026年の確定損益</div>
-      <div class="big" id="yearPl"></div>
-    </div>
     <div class="card">
       <h2>💰 成功報酬管理 <small>15%</small></h2>
       <dl class="rows">
@@ -536,14 +524,12 @@ body.noscroll{overflow:hidden}
     state.rows = res.logs.map(function (l, i) { var s = sigOf(l); var n = seenSig[s] || 0; seenSig[s] = n + 1; l.__r = i; return { l: l, sig: s, nth: n }; });
     state.sigCount = seenSig;   // 同じ名札の行の数（受け口の数と違えば、受け口が断る）
     var pls = res.logs.filter(function (l) { return NOT_PL.indexOf(l['区分']) < 0; });
-    var year = pls.reduce(function (s, l) { return s + Number(l['確定損益'] || 0); }, 0);
 
     $('asof').textContent = '株の収支' + (data.updatedAt ? '・' + data.updatedAt.replace(/^\d{4}-(\d{2})-(\d{2})/, function (_, a, b) { return Number(a) + '月' + Number(b) + '日'; }) + ' 時点' : '');
     $('role').textContent = state.role === 'owner' ? '記録できる' : '見るだけ';
     $('role').className = 'role' + (state.role === 'owner' ? '' : ' wife');
 
     // まとめ
-    var y = $('yearPl'); y.innerHTML = esc(sgn(Math.round(year), true)) + '<span class="cur">¥</span>' + esc(comma(year)); y.className = 'big ' + cls(year);
     money($('rwEarned'), R.earned); money($('rwPaid'), R.paidBase * JPG.RATE); money($('rwUnpaid'), R.unpaid);
     // ▲ 合計＝損を積んだ分（前の「今の残債」・2026-11-15 本人「債務みたいでいらつくので　▲ 合計　にして青字で」）
     $('rwDebt').textContent = R.balance < 0 ? '▲¥' + comma(R.balance) : '¥0'; $('rwDebt').className = 'minus';
