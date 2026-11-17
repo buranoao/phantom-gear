@@ -288,6 +288,16 @@ body.noscroll{overflow:hidden}
       <div class="big" id="yearPl"></div>
     </div>
     <div class="card">
+      <h2>📊 現在のポートフォリオ</h2>
+      <dl class="rows">
+        <dt>銘柄の数</dt><dd id="hCount"></dd>
+        <dt>買った金額の合計</dt><dd id="hCost"></dd>
+        <dt>含み損益</dt><dd id="hUnreal"></dd>
+      </dl>
+      <p class="note" id="hNote"></p>
+    </div>
+    <div id="holds"></div>
+    <div class="card">
       <h2>💰 成功報酬管理 <small>15%</small></h2>
       <dl class="rows">
         <dt>報酬の合計</dt><dd id="rwEarned"></dd>
@@ -324,16 +334,7 @@ body.noscroll{overflow:hidden}
 
   <!-- 銘柄 -->
   <section id="v-hold" class="hidden">
-    <div class="card">
-      <h2>📊 現在のポートフォリオ</h2>
-      <dl class="rows">
-        <dt>銘柄の数</dt><dd id="hCount"></dd>
-        <dt>買った金額の合計</dt><dd id="hCost"></dd>
-        <dt>含み損益</dt><dd id="hUnreal"></dd>
-      </dl>
-      <p class="note" id="hNote"></p>
-    </div>
-    <div id="holds"></div>
+    <div id="bonusHolds"></div>
     <div class="card">
       <h2 id="stTitle">📜 銘柄別アーカイブ</h2>
       <div class="sorts" id="stSort" role="group" aria-label="並べ方">
@@ -583,7 +584,7 @@ body.noscroll{overflow:hidden}
     }).join('');
 
     // 現在のポートフォリオ
-    // ★恩株（買い取り済み）は閉じた箱1つにしまう＝タップした時だけ開く・上の合計にも入れない（2026-11-14 本人「買い取ってくれた恩株って邪魔」）
+    // ★恩株（買い取り済み）は閉じた箱1つにしまう＝タップした時だけ開く・ポートフォリオの合計にも入れない（2026-11-14 本人「買い取ってくれた恩株って邪魔」）
     // ★恩株が確定した後に買い足した株は「別口」＝自分の買値で現在のポートフォリオに出す・合計にも入れる（2026-11-15 本人「別口で管理したい」）
     var prices = data.prices || {}, lots = R.lots || {}, hs = [], bs = [], cost = 0, unreal = 0, priced = 0;
     res.portfolio.forEach(function (v, c) {
@@ -607,17 +608,17 @@ body.noscroll{overflow:hidden}
         '<div><span>いまの株価</span><b>' + (has ? price(p) : '—') + '</b></div>' +
         '<div><span>含み損益</span><b class="' + (has ? cls(u) : '') + '">' + (has ? esc(yen(u, true)) : '—') + '</b></div></div></div>';
     };
+    // 現在のポートフォリオはまとめのタブ、恩株の箱は銘柄のタブに出す
     var html = hs.map(function (h) { return holdCard(h, false); }).join('');
     if (!hs.length && !bs.length) html = '<div class="card empty">いま持っている株はありません</div>';
-    if (bs.length) html += '<details class="bonusbox"><summary class="card"><span class="bnm">🏆 恩株・買い取り済み</span><span class="bct">' + bs.length + '銘柄</span>' +
-      '<span class="bsub">報酬にも上の合計にも入れていません。<wbr>タップで開きます</span></summary>' +
-      bs.map(function (h) { return holdCard(h, true); }).join('') + '</details>';
     $('holds').innerHTML = html;
+    $('bonusHolds').innerHTML = bs.length ? '<details class="bonusbox"><summary class="card"><span class="bnm">🏆 恩株・買い取り済み</span><span class="bct">' + bs.length + '銘柄</span>' +
+      '<span class="bsub">報酬にも<wbr>現在のポートフォリオにも<wbr>入れていません。<br>タップで開きます</span></summary>' +
+      bs.map(function (h) { return holdCard(h, true); }).join('') + '</details>' : '';
     $('hCount').textContent = hs.length + '銘柄';
     $('hCost').textContent = yen(cost);
     if (priced) { money($('hUnreal'), unreal, true); } else { $('hUnreal').textContent = '—'; $('hUnreal').className = ''; }
-    $('hNote').textContent = [priced ? '株価は20分ほど遅れて入ります。' : hs.length ? '株価がいま取れていません。開き直すと入ります。' : '',
-      bs.length ? '恩株は下の箱にしまっています。' : ''].filter(Boolean).join('\n');   // 1文ずつ別の行（つなげると「買い／取り済み」で折れた）
+    $('hNote').textContent = priced ? '株価は20分ほど遅れて入ります。' : hs.length ? '株価がいま取れていません。開き直すと入ります。' : '';
     renderStocks(res, nm);
 
     // 履歴
