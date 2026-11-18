@@ -610,7 +610,7 @@ body.noscroll{overflow:hidden}
     };
     // 現在のポートフォリオはまとめのタブ、恩株の箱は銘柄のタブに出す
     var html = hs.map(function (h) { return holdCard(h, false); }).join('');
-    if (!hs.length) html = '<div class="card empty">いま取り組み中の銘柄はありません</div>';   // 恩株（銘柄のタブの箱）があっても、取り組み中が0なら出す
+    if (!hs.length) html = '<div class="card empty">現在、取組中の銘柄はございません</div>';   // 恩株（銘柄のタブの箱）があっても、取り組み中が0なら出す
     $('holds').innerHTML = html;
     $('bonusHolds').innerHTML = bs.length ? '<details class="bonusbox"><summary class="card"><span class="bnm">🏆 恩株・買い取り済み</span><span class="bct">' + bs.length + '銘柄</span>' +
       '<span class="bsub">報酬にも<wbr>現在のポートフォリオにも<wbr>入れていません。<br>タップで開きます</span></summary>' +
